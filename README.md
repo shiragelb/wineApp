@@ -5,39 +5,40 @@ A social wine app with two layers:
 - **Hang Tickets** — an Instagram-style photo feed of bottles people actually opened
 - **Canonical cellar** — a shared database of wines (`canonical_wines`) that posts can attach to
 
-Phase 1 is the foundation: Supabase schema + a mobile-first Next.js shell with Feed, Upload, and Profile tabs. Auth and image upload are intentionally not wired yet.
+Phase 2 wires Supabase auth and the photo upload pipeline. Wine search is still a shortcut: uploads attach to the first row in `canonical_wines`.
 
 ## Run locally
 
 ```bash
 npm install
+cp .env.example .env.local
+# fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
 npm run dev
 ```
 
-Open [http://localhost:3847](http://localhost:3847) if you start the app the same way this repo does:
+The app listens on [http://localhost:3847](http://localhost:3847).
 
-```bash
-npm run dev -- --port 3847
-```
+## Supabase setup
 
-## Supabase schema
+Run these in the SQL Editor, in order:
 
-1. Create a Supabase project.
-2. Open the SQL Editor.
-3. Paste and run [`supabase/schema.sql`](supabase/schema.sql).
+1. [`supabase/schema.sql`](supabase/schema.sql) — tables, RLS, profile trigger
+2. [`supabase/storage.sql`](supabase/storage.sql) — `hang_images` bucket + storage policies
+3. [`supabase/seed.sql`](supabase/seed.sql) — one placeholder wine for uploads
 
-That file creates `profiles`, `canonical_wines`, `hang_tickets`, and `follows`, plus public-read / authenticated-insert RLS policies.
+Then in **Authentication → Providers → Email**, keep Email enabled. For the fastest prototype, turn off **Confirm email** so a new account can sign in immediately.
 
-When you are ready for Phase 2, copy `.env.example` to `.env.local` and add your project URL and anon key.
+Add `http://localhost:3847` (and later your production URL) under **Authentication → URL Configuration**.
 
 ## Routes
 
 | Tab     | Path       | Status                                      |
 | ------- | ---------- | ------------------------------------------- |
-| Feed    | `/`        | Dummy hang-ticket cards                     |
-| Upload  | `/upload`  | Form shell (no camera or submit)            |
-| Profile | `/profile` | Preview profile and empty tickets grid      |
+| Feed    | `/`        | Live `hang_tickets`, newest first           |
+| Upload  | `/upload`  | Photo + rating + note → Storage + insert    |
+| Profile | `/profile` | Signed-in cellar, or a sign-in prompt       |
+| Sign in | `/login`   | Email / password, with create-account       |
 
 ## Stack
 
-Next.js (App Router), React, Tailwind CSS, shadcn/ui, Lucide icons, Supabase (Postgres + Auth + Storage, next).
+Next.js (App Router), React, Tailwind CSS, shadcn/ui, Lucide icons, Supabase (Postgres, Auth, Storage).
