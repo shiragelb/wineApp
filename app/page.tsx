@@ -44,8 +44,16 @@ export default async function FeedPage() {
       <div className="space-y-4 px-4 py-4">
         {error ? (
           <EmptyState
-            title="Could not load tickets"
-            body={error.message}
+            title={
+              error.message.includes("schema cache")
+                ? "Database schema is missing"
+                : "Could not load tickets"
+            }
+            body={
+              error.message.includes("schema cache")
+                ? "Run supabase/schema.sql, then storage.sql and seed.sql, in the Supabase SQL Editor."
+                : error.message
+            }
           />
         ) : tickets.length === 0 ? (
           <EmptyState
