@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { hangTicketSelect, mapTicketRow } from "@/lib/tickets";
 
+export const dynamic = "force-dynamic";
+
 export default async function FeedPage() {
   if (!isSupabaseConfigured()) {
     return (

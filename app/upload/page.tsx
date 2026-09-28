@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   title: "Upload",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function UploadPage() {
   if (!isSupabaseConfigured()) {
     return (

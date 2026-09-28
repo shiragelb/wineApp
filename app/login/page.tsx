@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   title: "Sign in",
 };
 
+export const dynamic = "force-dynamic";
+
 function safeNextPath(value?: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/";
