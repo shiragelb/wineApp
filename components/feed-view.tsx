@@ -4,7 +4,6 @@ import { EmptyState } from "@/components/empty-state";
 import { HangTicketCard } from "@/components/hang-ticket-card";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
-import { WineExploreSearch } from "@/components/wine-explore-search";
 import { mockTickets } from "@/lib/mock-tickets";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { useDiscoveryFeed, useSessionUserId } from "@/lib/hooks";
@@ -27,48 +26,28 @@ export function FeedView() {
   return (
     <>
       <PageHeader
-        eyebrow="Hang Tickets"
-        title="For you"
+        eyebrow="Friends"
+        title="Pours"
         description={
           viewerId
-            ? "Friends you follow come first, then bottles that match what you rate highly, then what’s newly hung."
-            : "Newest pours first. Sign in to follow people and rank the feed around your cellar."
+            ? "People you follow first, then bottles that match what you rate highly."
+            : "Newest pours. Sign in so friends can sit at the front of this list."
         }
-      >
-        <WineExploreSearch />
-      </PageHeader>
+      />
       {!configured ? <SetupNeeded /> : null}
       <div className="space-y-4 px-4 py-4">
         {configured && error ? (
-          <EmptyState
-            title={
-              error.message.includes("schema cache") ||
-              error.message.includes("display_name")
-                ? "Database needs a profile update"
-                : "Could not load tickets"
-            }
-            body={
-              error.message.includes("display_name")
-                ? "Run supabase/profiles-display-name.sql in the SQL Editor, then refresh."
-                : error.message.includes("schema cache")
-                  ? "Run supabase/schema.sql, then storage.sql and seed.sql, in the Supabase SQL Editor."
-                  : error.message
-            }
-          />
+          <EmptyState title="Could not load tickets" body={error.message} />
         ) : configured && isLoading && tickets.length === 0 ? (
           <EmptyState title="Pouring the feed" body="Ranking hang tickets for you…" />
         ) : tickets.length === 0 ? (
           <EmptyState
             title="The rail is empty"
-            body="Sign in and hang the first bottle. It will show up here."
+            body="Hang a bottle, or follow someone who already has."
           />
         ) : (
           tickets.map((ticket, index) => (
-            <HangTicketCard
-              key={ticket.id}
-              ticket={ticket}
-              priority={index === 0}
-            />
+            <HangTicketCard key={ticket.id} ticket={ticket} priority={index === 0} />
           ))
         )}
       </div>

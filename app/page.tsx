@@ -1,5 +1,10 @@
-import { FeedView } from "@/components/feed-view";
+import { Suspense } from "react";
+import { CellarHomeView } from "@/components/cellar-home-view";
 
-export default function FeedPage() {
-  return <FeedView />;
+export default function HomePage() {
+  return (
+    <Suspense>
+      <CellarHomeView />
+    </Suspense>
+  );
 }

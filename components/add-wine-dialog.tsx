@@ -52,6 +52,7 @@ function AddWineForm({
   const [winery, setWinery] = useState("");
   const [region, setRegion] = useState("");
   const [grapes, setGrapes] = useState("");
+  const [color, setColor] = useState<"red" | "white" | "rose" | "orange" | "">("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -64,17 +65,34 @@ function AddWineForm({
 
     setPending(true);
     try {
+      const payload = {
+        name: name.trim(),
+        winery: winery.trim(),
+        region: region.trim() || null,
+        grapes: grapes.trim() || null,
+        color: color || null,
+      };
       const supabase = createClient();
-      const { data, error: insertError } = await supabase
+      let { data, error: insertError } = await supabase
         .from("canonical_wines")
-        .insert({
-          name: name.trim(),
-          winery: winery.trim(),
-          region: region.trim() || null,
-          grapes: grapes.trim() || null,
-        })
-        .select("id, name, winery, region, grapes")
+        .insert(payload)
+        .select("id, name, winery, region, grapes, color")
         .single();
+
+      if (insertError && /color|schema cache|does not exist/i.test(insertError.message)) {
+        const retry = await supabase
+          .from("canonical_wines")
+          .insert({
+            name: payload.name,
+            winery: payload.winery,
+            region: payload.region,
+            grapes: payload.grapes,
+          })
+          .select("id, name, winery, region, grapes")
+          .single();
+        data = retry.data ? { ...retry.data, color: payload.color } : retry.data;
+        insertError = retry.error;
+      }
 
       if (insertError || !data) {
         setError(insertError?.message ?? "Could not add that wine.");
@@ -135,6 +153,22 @@ function AddWineForm({
           placeholder="Nebbiolo"
           onChange={(event) => setGrapes(event.target.value)}
         />
+      </label>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Color</span>
+        <select
+          className="h-11 w-full rounded-lg border border-input bg-card px-3 text-sm"
+          value={color}
+          onChange={(event) =>
+            setColor(event.target.value as typeof color)
+          }
+        >
+          <option value="">Not sure</option>
+          <option value="red">Red</option>
+          <option value="white">White</option>
+          <option value="rose">Rosé</option>
+          <option value="orange">Orange</option>
+        </select>
       </label>
 
       {error ? (

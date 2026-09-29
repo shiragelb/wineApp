@@ -21,6 +21,7 @@ export type HangTicketView = {
   review: string;
   imageUrl?: string;
   createdAt?: string;
+  price?: number;
   tone?: string;
 };
 
@@ -30,6 +31,7 @@ export type CanonicalWine = {
   winery: string;
   region: string | null;
   grapes?: string | null;
+  color?: string | null;
 };
 
 function asOne<T>(value: T | T[] | null | undefined): T | null {
@@ -45,6 +47,7 @@ export type TicketRow = {
   rating: number;
   review_text: string | null;
   created_at?: string;
+  price?: number | string | null;
   profiles:
     | Pick<ProfileRow, "username" | "display_name" | "avatar_url">
     | Pick<ProfileRow, "username" | "display_name" | "avatar_url">[]
@@ -56,6 +59,7 @@ export type TicketRow = {
         winery: string;
         region: string | null;
         grapes?: string | null;
+        color?: string | null;
       }
     | {
         id?: string;
@@ -63,6 +67,7 @@ export type TicketRow = {
         winery: string;
         region: string | null;
         grapes?: string | null;
+        color?: string | null;
       }[]
     | null;
 };
@@ -92,6 +97,7 @@ export function mapTicketRow(row: TicketRow): HangTicketView {
     review: row.review_text ?? "",
     imageUrl: row.image_url,
     createdAt: row.created_at,
+    price: row.price == null || row.price === "" ? undefined : Number(row.price),
   };
 }
 
@@ -103,8 +109,9 @@ export const hangTicketSelect = `
   rating,
   review_text,
   created_at,
+  price,
   profiles ( username, display_name, avatar_url ),
-  canonical_wines ( id, name, winery, region, grapes )
+  canonical_wines ( id, name, winery, region, grapes, color )
 ` as const;
 
 export const hangTicketSelectFallback = `
@@ -130,6 +137,12 @@ export const CACHE_KEYS = {
   wines: (query: string) => ["wines", query] as const,
   following: (userId: string) => ["following", userId] as const,
   followStats: (userId: string) => ["follow-stats", userId] as const,
+  followList: (userId: string, kind: "followers" | "following") =>
+    ["follow-list", userId, kind] as const,
+  mutes: (userId: string) => ["mutes", userId] as const,
+  notifications: (userId: string) => ["notifications", userId] as const,
+  people: (query: string) => ["people", query] as const,
+  catalog: "wine-catalog",
   discovery: (viewerId: string | null) =>
     ["discovery-feed", viewerId ?? "anon"] as const,
 };

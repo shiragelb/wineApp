@@ -108,14 +108,14 @@ export function HangTicketCard({
         <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-4 pt-16 pb-4 text-white">
           {wineHref ? (
             <Link href={wineHref} prefetch={true} className="block hover:opacity-90">
-              <p className="font-heading text-2xl leading-tight underline-offset-4 hover:underline">
+              <p className="text-2xl font-semibold leading-tight tracking-tight underline-offset-4 hover:underline">
                 {ticket.wine}
               </p>
               <p className="mt-0.5 text-sm text-white/85">{ticket.winery}</p>
             </Link>
           ) : (
             <>
-              <p className="font-heading text-2xl leading-tight">{ticket.wine}</p>
+              <p className="text-2xl font-semibold leading-tight tracking-tight">{ticket.wine}</p>
               <p className="mt-0.5 text-sm text-white/85">{ticket.winery}</p>
             </>
           )}

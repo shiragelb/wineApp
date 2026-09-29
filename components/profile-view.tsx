@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { Settings } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { EditProfileDialog } from "@/components/edit-profile-dialog";
+import { FollowStatsBar } from "@/components/follow-stats-bar";
 import { HangTicketCard } from "@/components/hang-ticket-card";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
-import { SignOutButton } from "@/components/sign-out-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useProfile, useFollowStats, useSessionUserId, useTickets } from "@/lib/hooks";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -84,18 +85,9 @@ export function ProfileView() {
     : "HT";
   const photo = publicAvatarUrl(profile?.avatar_url);
   const list = tickets ?? [];
-
-  const stats = [
-    { label: "Tickets", value: ticketsLoading && !tickets ? "—" : String(list.length) },
-    {
-      label: "Following",
-      value: statsLoading && !followStats ? "—" : String(followStats?.following ?? 0),
-    },
-    {
-      label: "Followers",
-      value: statsLoading && !followStats ? "—" : String(followStats?.followers ?? 0),
-    },
-  ];
+  const followHref = profile?.username
+    ? `/u/${encodeURIComponent(profile.username)}`
+    : null;
 
   return (
     <>
@@ -103,6 +95,16 @@ export function ProfileView() {
         eyebrow="Your cellar"
         title="Profile"
         description="The bottles you have hung so far."
+        actions={
+          <Link
+            href="/settings"
+            prefetch={true}
+            aria-label="Settings"
+            className="flex size-10 items-center justify-center rounded-full text-foreground hover:bg-muted"
+          >
+            <Settings className="size-5" aria-hidden />
+          </Link>
+        }
       />
       <div className="space-y-6 px-4 py-5">
         <section className="flex items-center gap-4">
@@ -140,16 +142,15 @@ export function ProfileView() {
           Edit profile
         </Button>
 
-        <dl className="grid grid-cols-3 divide-x divide-border rounded-2xl border border-border bg-card">
-          {stats.map((stat) => (
-            <div key={stat.label} className="px-2 py-3 text-center">
-              <dt className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                {stat.label}
-              </dt>
-              <dd className="mt-1 text-lg font-semibold tabular-nums">{stat.value}</dd>
-            </div>
-          ))}
-        </dl>
+        <FollowStatsBar
+          tickets={String(list.length)}
+          following={String(followStats?.following ?? 0)}
+          followers={String(followStats?.followers ?? 0)}
+          loadingTickets={ticketsLoading && !tickets}
+          loadingFollows={statsLoading && !followStats}
+          followingHref={followHref ? `${followHref}/following` : "/people"}
+          followersHref={followHref ? `${followHref}/followers` : "/people"}
+        />
 
         {ticketsLoading && list.length === 0 ? (
           <EmptyState title="Loading tickets" body="Pulling the bottles you have hung." />
@@ -165,8 +166,6 @@ export function ProfileView() {
             ))}
           </div>
         )}
-
-        <SignOutButton />
       </div>
 
       <EditProfileDialog

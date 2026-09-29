@@ -3,8 +3,8 @@
 import useSWR, { mutate as globalMutate } from "swr";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import type { ProfileRow } from "@/lib/profile";
 import { resolvedDisplayName } from "@/lib/profile";
+import type { ProfileRow } from "@/lib/profile";
 import {
   CACHE_KEYS,
   mapTicketRow,
@@ -21,10 +21,18 @@ import {
   mergeTickets,
   rankDiscoveryFeed,
 } from "@/lib/feed-rank";
-import { fetchFollowStats, fetchFollowingIds } from "@/lib/follows";
+import { fetchFollowStats, fetchFollowList, fetchFollowingIds, searchPeople } from "@/lib/follows";
+import { fetchMutedIds } from "@/lib/mutes";
+import { markNotificationsSeen, readSeenNotificationIds } from "@/lib/notifications";
 
-function isMissingDisplayName(message: string) {
-  return message.includes("display_name") || message.includes("schema cache");
+function isMissingColumn(message: string) {
+  return (
+    message.includes("display_name") ||
+    message.includes("schema cache") ||
+    message.includes("does not exist") ||
+    message.includes("price") ||
+    message.includes("color")
+  );
 }
 
 type TicketFilter = {
@@ -59,7 +67,7 @@ export async function fetchTickets(filter?: TicketFilter): Promise<HangTicketVie
     return ((first.data ?? []) as unknown as TicketRow[]).map(mapTicketRow);
   }
 
-  if (!isMissingDisplayName(first.error.message)) {
+  if (!isMissingColumn(first.error.message)) {
     throw new Error(first.error.message);
   }
 
@@ -96,6 +104,12 @@ export function revalidateTickets(userId?: string) {
   );
   void globalMutate(
     (key) => Array.isArray(key) && key[0] === "discovery-feed",
+    undefined,
+    { revalidate: true }
+  );
+  void globalMutate(CACHE_KEYS.catalog);
+  void globalMutate(
+    (key) => Array.isArray(key) && key[0] === "notifications",
     undefined,
     { revalidate: true }
   );
@@ -137,7 +151,7 @@ async function selectProfile(
     return metaName ? { ...row, display_name: metaName } : row;
   }
 
-  if (!isMissingDisplayName(full.error.message)) {
+  if (!isMissingColumn(full.error.message)) {
     throw new Error(full.error.message);
   }
 
@@ -190,14 +204,22 @@ export function useProfileByUsername(username: string | null) {
 
 export async function fetchWine(wineId: string): Promise<CanonicalWine | null> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  const full = await supabase
+    .from("canonical_wines")
+    .select("id, name, winery, region, grapes, color")
+    .eq("id", wineId)
+    .maybeSingle();
+
+  if (!full.error) return full.data;
+  if (!isMissingColumn(full.error.message)) throw new Error(full.error.message);
+
+  const fallback = await supabase
     .from("canonical_wines")
     .select("id, name, winery, region, grapes")
     .eq("id", wineId)
     .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  return data;
+  if (fallback.error) throw new Error(fallback.error.message);
+  return fallback.data;
 }
 
 export function useWine(wineId: string | null) {
@@ -223,25 +245,33 @@ function sanitizeWineQuery(query: string) {
     .trim();
 }
 
-export async function searchWines(query: string): Promise<CanonicalWine[]> {
+export async function searchWines(query: string, limit = 12): Promise<CanonicalWine[]> {
   const supabase = createClient();
   const trimmed = sanitizeWineQuery(query);
-  let request = supabase
-    .from("canonical_wines")
-    .select("id, name, winery, region, grapes")
-    .order("name")
-    .limit(12);
 
-  if (trimmed) {
-    const pattern = `%${trimmed}%`;
-    request = request.or(
-      `name.ilike.${pattern},winery.ilike.${pattern},region.ilike.${pattern}`
-    );
+  async function run(select: string) {
+    let request = supabase
+      .from("canonical_wines")
+      .select(select)
+      .order("name")
+      .limit(limit);
+
+    if (trimmed) {
+      const pattern = `%${trimmed}%`;
+      request = request.or(
+        `name.ilike.${pattern},winery.ilike.${pattern},region.ilike.${pattern}`
+      );
+    }
+    return request;
   }
 
-  const { data, error } = await request;
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  const first = await run("id, name, winery, region, grapes, color");
+  if (!first.error) return (first.data ?? []) as unknown as CanonicalWine[];
+  if (!isMissingColumn(first.error.message)) throw new Error(first.error.message);
+
+  const fallback = await run("id, name, winery, region, grapes");
+  if (fallback.error) throw new Error(fallback.error.message);
+  return (fallback.data ?? []) as unknown as CanonicalWine[];
 }
 
 export function useWineSearch(query: string) {
@@ -261,6 +291,7 @@ export function revalidateWines() {
     undefined,
     { revalidate: true }
   );
+  void globalMutate(CACHE_KEYS.catalog);
 }
 
 export function revalidateProfile(userId: string) {
@@ -301,14 +332,23 @@ export async function fetchDiscoveryFeed(viewerId: string | null) {
     });
   }
 
-  const followedIds = await fetchFollowingIds(viewerId);
+  const [followedIds, mutedIds] = await Promise.all([
+    fetchFollowingIds(viewerId),
+    fetchMutedIds(viewerId),
+  ]);
+  const muted = new Set(mutedIds);
   const [tasteSource, friendTickets] = await Promise.all([
     fetchTickets({ userId: viewerId }),
-    fetchTickets({ userIds: followedIds, limit: DISCOVERY_POOL }),
+    fetchTickets({
+      userIds: followedIds.filter((id) => !muted.has(id)),
+      limit: DISCOVERY_POOL,
+    }),
   ]);
 
   return rankDiscoveryFeed({
-    tickets: mergeTickets(friendTickets, recent),
+    tickets: mergeTickets(friendTickets, recent).filter(
+      (ticket) => !ticket.userId || !muted.has(ticket.userId)
+    ),
     followedIds,
     taste: buildTasteProfile(tasteSource),
     viewerId,
@@ -327,3 +367,130 @@ export function useDiscoveryFeed() {
     { keepPreviousData: true }
   );
 }
+
+export function useMutedIds(userId: string | null) {
+  return useSWR(
+    userId ? CACHE_KEYS.mutes(userId) : null,
+    () => fetchMutedIds(userId as string),
+    { keepPreviousData: true }
+  );
+}
+
+export function useFollowList(
+  userId: string | null,
+  kind: "followers" | "following"
+) {
+  return useSWR(
+    userId ? CACHE_KEYS.followList(userId, kind) : null,
+    () => fetchFollowList(userId as string, kind),
+    { keepPreviousData: true }
+  );
+}
+
+export function usePeopleSearch(query: string) {
+  return useSWR(
+    isSupabaseConfigured() ? CACHE_KEYS.people(query.trim()) : null,
+    () => searchPeople(query),
+    { keepPreviousData: true, dedupingInterval: 8_000 }
+  );
+}
+
+export type WineCatalog = {
+  wines: CanonicalWine[];
+  tickets: HangTicketView[];
+};
+
+export async function fetchWineCatalog(): Promise<WineCatalog> {
+  const [wines, tickets] = await Promise.all([
+    searchWines("", 80),
+    fetchTickets({ limit: 120 }),
+  ]);
+  return { wines, tickets };
+}
+
+export function useWineCatalog() {
+  return useSWR(
+    isSupabaseConfigured() ? CACHE_KEYS.catalog : null,
+    fetchWineCatalog,
+    { keepPreviousData: true }
+  );
+}
+
+export type AppNotification = {
+  id: string;
+  kind: "follow" | "friend_ticket";
+  createdAt: string;
+  actor: ProfileRow;
+  ticket?: HangTicketView;
+};
+
+export async function fetchNotifications(userId: string): Promise<AppNotification[]> {
+  const supabase = createClient();
+  const [followers, followingIds, mutedIds] = await Promise.all([
+    fetchFollowList(userId, "followers"),
+    fetchFollowingIds(userId),
+    fetchMutedIds(userId),
+  ]);
+  const muted = new Set(mutedIds);
+
+  const { data: followRows } = await supabase
+    .from("follows")
+    .select("follower_id, created_at")
+    .eq("following_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  const followByActor = new Map(
+    (followRows ?? []).map((row) => [row.follower_id as string, row.created_at as string])
+  );
+
+  const followNotes: AppNotification[] = followers
+    .filter((actor) => actor.id && !muted.has(actor.id))
+    .map((actor) => ({
+      id: `follow:${actor.id}`,
+      kind: "follow" as const,
+      createdAt: followByActor.get(actor.id as string) ?? new Date().toISOString(),
+      actor,
+    }));
+
+  const visibleFriends = followingIds.filter((id) => !muted.has(id));
+  const friendTickets =
+    visibleFriends.length > 0
+      ? await fetchTickets({ userIds: visibleFriends, limit: 30 })
+      : [];
+
+  const ticketNotes: AppNotification[] = friendTickets
+    .filter((ticket) => ticket.userId && ticket.userId !== userId)
+    .map((ticket) => ({
+      id: `ticket:${ticket.id}`,
+      kind: "friend_ticket" as const,
+      createdAt: ticket.createdAt ?? new Date(0).toISOString(),
+      actor: {
+        id: ticket.userId,
+        username: ticket.username,
+        display_name: ticket.displayName,
+        avatar_url: ticket.avatarUrl ?? null,
+      },
+      ticket,
+    }));
+
+  return [...followNotes, ...ticketNotes].sort(
+    (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)
+  );
+}
+
+export function useNotifications(userId: string | null) {
+  return useSWR(
+    userId ? CACHE_KEYS.notifications(userId) : null,
+    () => fetchNotifications(userId as string),
+    { keepPreviousData: true }
+  );
+}
+
+export function unreadNotificationCount(items: AppNotification[] | undefined) {
+  if (!items?.length) return 0;
+  const seen = readSeenNotificationIds();
+  return items.filter((item) => !seen.has(item.id)).length;
+}
+
+export { markNotificationsSeen, readSeenNotificationIds };

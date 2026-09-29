@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import { EmptyState } from "@/components/empty-state";
 import { FollowButton } from "@/components/follow-button";
+import { FollowStatsBar } from "@/components/follow-stats-bar";
 import { HangTicketCard } from "@/components/hang-ticket-card";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
@@ -97,32 +98,15 @@ export function PublicProfileView() {
           <FollowButton profileId={profile.id} size="default" />
         </section>
 
-        <dl className="grid grid-cols-3 divide-x divide-border rounded-2xl border border-border bg-card">
-          <div className="px-2 py-3 text-center">
-            <dt className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-              Tickets
-            </dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums">
-              {ticketsLoading && !tickets ? "—" : String(list.length)}
-            </dd>
-          </div>
-          <div className="px-2 py-3 text-center">
-            <dt className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-              Following
-            </dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums">
-              {statsLoading && !followStats ? "—" : String(followStats?.following ?? 0)}
-            </dd>
-          </div>
-          <div className="px-2 py-3 text-center">
-            <dt className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-              Followers
-            </dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums">
-              {statsLoading && !followStats ? "—" : String(followStats?.followers ?? 0)}
-            </dd>
-          </div>
-        </dl>
+        <FollowStatsBar
+          tickets={String(list.length)}
+          following={String(followStats?.following ?? 0)}
+          followers={String(followStats?.followers ?? 0)}
+          loadingTickets={ticketsLoading && !tickets}
+          loadingFollows={statsLoading && !followStats}
+          followingHref={`/u/${encodeURIComponent(profile.username)}/following`}
+          followersHref={`/u/${encodeURIComponent(profile.username)}/followers`}
+        />
 
         {ticketsLoading && list.length === 0 ? (
           <EmptyState title="Loading tickets" body="Pulling the bottles they have hung." />

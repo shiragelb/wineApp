@@ -35,7 +35,7 @@ export function WineExploreSearch() {
         <Input
           className="h-11 bg-card pr-3 pl-9"
           value={query}
-          placeholder="Search a wine and see who hung it…"
+          placeholder="Search a bottle before you buy…"
           autoComplete="off"
           onChange={(event) => {
             setQuery(event.target.value);

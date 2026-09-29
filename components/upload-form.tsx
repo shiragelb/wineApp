@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { WinePicker } from "@/components/wine-picker";
 import { createClient } from "@/lib/supabase/client";
 import { revalidateTickets } from "@/lib/hooks";
@@ -17,6 +18,7 @@ export function UploadForm() {
   const [wine, setWine] = useState<CanonicalWine | null>(null);
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState("");
+  const [price, setPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -94,13 +96,22 @@ export function UploadForm() {
         data: { publicUrl },
       } = supabase.storage.from("hang_images").getPublicUrl(path);
 
-      const { error: insertError } = await supabase.from("hang_tickets").insert({
+      const spent = Number(price);
+      const payload: Record<string, unknown> = {
         user_id: user.id,
         wine_id: wine.id,
         image_url: publicUrl,
         rating,
         review_text: review.trim() || null,
-      });
+      };
+      if (Number.isFinite(spent) && spent > 0) payload.price = spent;
+
+      let { error: insertError } = await supabase.from("hang_tickets").insert(payload);
+      if (insertError && /price|schema cache|does not exist/i.test(insertError.message)) {
+        delete payload.price;
+        const retry = await supabase.from("hang_tickets").insert(payload);
+        insertError = retry.error;
+      }
 
       if (insertError) {
         setError(insertError.message);
@@ -108,7 +119,7 @@ export function UploadForm() {
       }
 
       revalidateTickets(user.id);
-      router.push("/");
+      router.push("/feed");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not post ticket.");
@@ -194,6 +205,17 @@ export function UploadForm() {
           onChange={(event) => setReview(event.target.value)}
           placeholder="What did it taste like, and who was at the table?"
           className="w-full resize-none rounded-xl border border-input bg-card px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        />
+      </label>
+
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">What you paid (optional)</span>
+        <Input
+          className="h-11 bg-card px-3"
+          inputMode="decimal"
+          value={price}
+          placeholder="42"
+          onChange={(event) => setPrice(event.target.value)}
         />
       </label>
 
