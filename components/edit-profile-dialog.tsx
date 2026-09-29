@@ -115,14 +115,38 @@ function EditProfileForm({
         avatarUrl = supabase.storage.from("hang_images").getPublicUrl(path).data.publicUrl;
       }
 
-      const { error: updateError } = await supabase
+      const payload = {
+        username: nextUsername,
+        display_name: nextDisplay || null,
+        avatar_url: avatarUrl,
+      };
+
+      let { error: updateError } = await supabase
         .from("profiles")
-        .update({
-          username: nextUsername,
-          display_name: nextDisplay || null,
-          avatar_url: avatarUrl,
-        })
+        .update(payload)
         .eq("id", userId);
+
+      if (updateError && updateError.message.includes("display_name")) {
+        const fallback = await supabase
+          .from("profiles")
+          .update({
+            username: nextUsername,
+            avatar_url: avatarUrl,
+          })
+          .eq("id", userId);
+        updateError = fallback.error;
+        if (!updateError && nextDisplay) {
+          setError(
+            "Username saved. Run supabase/profiles-display-name.sql to enable nicknames, then try again."
+          );
+          await Promise.all([
+            mutate(CACHE_KEYS.profile(userId)),
+            mutate(CACHE_KEYS.tickets),
+            mutate(CACHE_KEYS.myTickets(userId)),
+          ]);
+          return;
+        }
+      }
 
       if (updateError) {
         setError(
