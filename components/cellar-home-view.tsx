@@ -264,7 +264,9 @@ function WineCard({
           {verdict.tickets === 0
             ? "No tickets yet"
             : `${formatScore(verdict.average)} · ${verdict.tickets} ticket${verdict.tickets === 1 ? "" : "s"}`}
-          {verdict.friendTickets > 0 ? ` · ${verdict.friendTickets} friends` : ""}
+          {verdict.friendTickets > 0
+            ? ` · ${verdict.friendTickets} friend${verdict.friendTickets === 1 ? "" : "s"}`
+            : ""}
         </p>
         {formatPrice(verdict.averagePrice) ? (
           <p className="text-xs text-muted-foreground">Avg {formatPrice(verdict.averagePrice)}</p>
