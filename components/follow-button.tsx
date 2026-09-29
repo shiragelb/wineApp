@@ -24,7 +24,7 @@ export function FollowButton({
 }) {
   const pathname = usePathname();
   const { data: viewerId, isLoading: sessionLoading } = useSessionUserId();
-  const { data: followingIds } = useFollowingIds(viewerId ?? null);
+  const { data: followingIds, isLoading: followsLoading } = useFollowingIds(viewerId ?? null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +33,7 @@ export function FollowButton({
   if (viewerId && profileId === viewerId) return null;
 
   const targetId = profileId;
+  const followsReady = !viewerId || followingIds !== undefined || !followsLoading;
   const following = Boolean(viewerId && followingIds?.includes(targetId));
   const nextHref = pathname.startsWith("/login")
     ? "/login"
@@ -82,8 +83,9 @@ export function FollowButton({
         type="button"
         size={size}
         variant={following ? "outline" : "default"}
-        disabled={pending}
+        disabled={pending || !followsReady}
         aria-pressed={following}
+        aria-label={following ? "Unfollow" : "Follow"}
         className={cn(size === "default" && "h-9 px-3", className)}
         onClick={(event) => {
           event.preventDefault();
@@ -91,7 +93,7 @@ export function FollowButton({
           void toggle();
         }}
       >
-        {pending ? "Saving…" : following ? "Following" : "Follow"}
+        {!followsReady ? "…" : pending ? "Saving…" : following ? "Following" : "Follow"}
       </Button>
       {error ? (
         <span className="max-w-40 text-right text-[11px] leading-tight text-destructive">
