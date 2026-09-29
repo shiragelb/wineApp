@@ -1,4 +1,8 @@
+"use client";
+
+import Image from "next/image";
 import { Star } from "lucide-react";
+import { profileInitials } from "@/lib/profile";
 import type { HangTicketView } from "@/lib/tickets";
 
 function Stars({ rating }: { rating: number }) {
@@ -19,21 +23,40 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function HangTicketCard({ ticket }: { ticket: HangTicketView }) {
+export function HangTicketCard({
+  ticket,
+  priority = false,
+}: {
+  ticket: HangTicketView;
+  priority?: boolean;
+}) {
+  const initials = profileInitials({
+    username: ticket.username,
+    display_name: ticket.displayName === `@${ticket.username}` ? null : ticket.displayName,
+  });
+
   return (
     <article className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_8px_24px_-18px_rgba(70,24,16,0.45)]">
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <span
-          aria-hidden
-          className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
-        >
-          {ticket.username.slice(0, 1).toUpperCase()}
+        <span className="relative flex size-8 shrink-0 overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary">
+          {ticket.avatarUrl ? (
+            <Image
+              src={ticket.avatarUrl}
+              alt=""
+              width={32}
+              height={32}
+              className="size-full object-cover"
+            />
+          ) : (
+            <span className="flex size-full items-center justify-center">{initials}</span>
+          )}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{ticket.username}</p>
-          {ticket.region ? (
-            <p className="truncate text-xs text-muted-foreground">{ticket.region}</p>
-          ) : null}
+          <p className="truncate text-sm font-medium">{ticket.displayName}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {ticket.handle ?? ticket.region}
+            {ticket.handle && ticket.region ? ` · ${ticket.region}` : ""}
+          </p>
         </div>
       </div>
 
@@ -41,14 +64,18 @@ export function HangTicketCard({ ticket }: { ticket: HangTicketView }) {
         className="relative aspect-[4/5] w-full"
         style={ticket.imageUrl ? undefined : { background: ticket.tone }}
         role={ticket.imageUrl ? undefined : "img"}
-        aria-label={ticket.imageUrl ? undefined : `Placeholder photo for ${ticket.wine}`}
+        aria-label={
+          ticket.imageUrl ? undefined : `Placeholder photo for ${ticket.wine}`
+        }
       >
         {ticket.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={ticket.imageUrl}
             alt={ticket.wine}
-            className="absolute inset-0 size-full object-cover"
+            fill
+            sizes="(max-width: 448px) 100vw, 448px"
+            priority={priority}
+            className="object-cover"
           />
         ) : null}
         <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-4 pt-16 pb-4 text-white">

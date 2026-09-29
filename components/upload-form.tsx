@@ -1,17 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WinePicker } from "@/components/wine-picker";
 import { createClient } from "@/lib/supabase/client";
-import type { PlaceholderWine } from "@/lib/tickets";
+import { revalidateTickets } from "@/lib/hooks";
+import type { CanonicalWine } from "@/lib/tickets";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
-export function UploadForm({ wine }: { wine: PlaceholderWine }) {
+export function UploadForm() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
+  const [wine, setWine] = useState<CanonicalWine | null>(null);
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +24,11 @@ export function UploadForm({ wine }: { wine: PlaceholderWine }) {
     () => (file ? URL.createObjectURL(file) : null),
     [file]
   );
+
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,6 +46,11 @@ export function UploadForm({ wine }: { wine: PlaceholderWine }) {
 
     if (file.size > MAX_BYTES) {
       setError("Keep the photo under 5 MB.");
+      return;
+    }
+
+    if (!wine) {
+      setError("Pick a wine from the cellar, or add a new one.");
       return;
     }
 
@@ -94,6 +107,7 @@ export function UploadForm({ wine }: { wine: PlaceholderWine }) {
         return;
       }
 
+      revalidateTickets(user.id);
       router.push("/");
       router.refresh();
     } catch (caught) {
@@ -139,17 +153,7 @@ export function UploadForm({ wine }: { wine: PlaceholderWine }) {
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Wine</legend>
-        <div className="rounded-xl border border-input bg-card px-3 py-3">
-          <p className="text-sm font-medium">{wine.name}</p>
-          <p className="text-xs text-muted-foreground">
-            {wine.winery}
-            {wine.region ? ` · ${wine.region}` : ""}
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Temporary shortcut: this is the first row in `canonical_wines`. Wine
-          search comes next.
-        </p>
+        <WinePicker wine={wine} onChange={setWine} />
       </fieldset>
 
       <fieldset className="space-y-2">

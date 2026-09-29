@@ -8,9 +8,13 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text not null unique,
+  display_name text,
   avatar_url text,
   created_at timestamptz not null default now(),
-  constraint username_length check (char_length(username) between 2 and 32)
+  constraint username_length check (char_length(username) between 2 and 32),
+  constraint display_name_length check (
+    display_name is null or char_length(display_name) between 1 and 48
+  )
 );
 
 create table if not exists public.canonical_wines (
@@ -72,13 +76,14 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username)
+  insert into public.profiles (id, username, display_name)
   values (
     new.id,
     coalesce(
-      new.raw_user_meta_data ->> 'username',
+      nullif(new.raw_user_meta_data ->> 'username', ''),
       'user_' || left(new.id::text, 8)
-    )
+    ),
+    nullif(new.raw_user_meta_data ->> 'display_name', '')
   );
   return new;
 end;
