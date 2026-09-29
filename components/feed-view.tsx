@@ -7,7 +7,7 @@ import { SetupNeeded } from "@/components/setup-needed";
 import { WineExploreSearch } from "@/components/wine-explore-search";
 import { mockTickets } from "@/lib/mock-tickets";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { useTickets } from "@/lib/hooks";
+import { useDiscoveryFeed, useSessionUserId } from "@/lib/hooks";
 import type { HangTicketView } from "@/lib/tickets";
 
 function fromMock(): HangTicketView[] {
@@ -20,15 +20,20 @@ function fromMock(): HangTicketView[] {
 
 export function FeedView() {
   const configured = isSupabaseConfigured();
-  const { data, error, isLoading } = useTickets();
+  const { data: viewerId } = useSessionUserId();
+  const { data, error, isLoading } = useDiscoveryFeed();
   const tickets = configured ? (data ?? []) : fromMock();
 
   return (
     <>
       <PageHeader
         eyebrow="Hang Tickets"
-        title="Tonight’s pours"
-        description="A casual feed of bottles friends actually opened — photos first, cellar notes second."
+        title="For you"
+        description={
+          viewerId
+            ? "Friends you follow come first, then bottles that match what you rate highly, then what’s newly hung."
+            : "Newest pours first. Sign in to follow people and rank the feed around your cellar."
+        }
       >
         <WineExploreSearch />
       </PageHeader>
@@ -51,7 +56,7 @@ export function FeedView() {
             }
           />
         ) : configured && isLoading && tickets.length === 0 ? (
-          <EmptyState title="Pouring the feed" body="Loading hang tickets…" />
+          <EmptyState title="Pouring the feed" body="Ranking hang tickets for you…" />
         ) : tickets.length === 0 ? (
           <EmptyState
             title="The rail is empty"

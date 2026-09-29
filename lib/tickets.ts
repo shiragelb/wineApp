@@ -16,9 +16,11 @@ export type HangTicketView = {
   wine: string;
   winery: string;
   region: string;
+  grapes?: string;
   rating: number;
   review: string;
   imageUrl?: string;
+  createdAt?: string;
   tone?: string;
 };
 
@@ -42,13 +44,26 @@ export type TicketRow = {
   image_url: string;
   rating: number;
   review_text: string | null;
+  created_at?: string;
   profiles:
     | Pick<ProfileRow, "username" | "display_name" | "avatar_url">
     | Pick<ProfileRow, "username" | "display_name" | "avatar_url">[]
     | null;
   canonical_wines:
-    | { id?: string; name: string; winery: string; region: string | null }
-    | { id?: string; name: string; winery: string; region: string | null }[]
+    | {
+        id?: string;
+        name: string;
+        winery: string;
+        region: string | null;
+        grapes?: string | null;
+      }
+    | {
+        id?: string;
+        name: string;
+        winery: string;
+        region: string | null;
+        grapes?: string | null;
+      }[]
     | null;
 };
 
@@ -72,9 +87,11 @@ export function mapTicketRow(row: TicketRow): HangTicketView {
     wine: wine?.name ?? "Unknown bottle",
     winery: wine?.winery ?? "Unknown winery",
     region: wine?.region ?? "",
+    grapes: wine?.grapes ?? undefined,
     rating: row.rating,
     review: row.review_text ?? "",
     imageUrl: row.image_url,
+    createdAt: row.created_at,
   };
 }
 
@@ -85,8 +102,9 @@ export const hangTicketSelect = `
   image_url,
   rating,
   review_text,
+  created_at,
   profiles ( username, display_name, avatar_url ),
-  canonical_wines ( id, name, winery, region )
+  canonical_wines ( id, name, winery, region, grapes )
 ` as const;
 
 export const hangTicketSelectFallback = `
@@ -96,8 +114,9 @@ export const hangTicketSelectFallback = `
   image_url,
   rating,
   review_text,
+  created_at,
   profiles ( username, avatar_url ),
-  canonical_wines ( id, name, winery, region )
+  canonical_wines ( id, name, winery, region, grapes )
 ` as const;
 
 export const CACHE_KEYS = {
@@ -109,6 +128,10 @@ export const CACHE_KEYS = {
   wine: (wineId: string) => ["wine", wineId] as const,
   wineTickets: (wineId: string) => ["wine-tickets", wineId] as const,
   wines: (query: string) => ["wines", query] as const,
+  following: (userId: string) => ["following", userId] as const,
+  followStats: (userId: string) => ["follow-stats", userId] as const,
+  discovery: (viewerId: string | null) =>
+    ["discovery-feed", viewerId ?? "anon"] as const,
 };
 
 export function profilePath(username: string) {

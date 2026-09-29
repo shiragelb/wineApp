@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { useProfile, useSessionUserId, useTickets } from "@/lib/hooks";
+import { useProfile, useFollowStats, useSessionUserId, useTickets } from "@/lib/hooks";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { profileHandle, profileInitials, profileTitle, publicAvatarUrl } from "@/lib/profile";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ export function ProfileView() {
     userId ?? undefined,
     Boolean(userId)
   );
+  const { data: followStats, isLoading: statsLoading } = useFollowStats(userId ?? null);
   const [editing, setEditing] = useState(false);
 
   if (!configured) {
@@ -86,8 +87,14 @@ export function ProfileView() {
 
   const stats = [
     { label: "Tickets", value: ticketsLoading && !tickets ? "—" : String(list.length) },
-    { label: "Following", value: "0" },
-    { label: "Followers", value: "0" },
+    {
+      label: "Following",
+      value: statsLoading && !followStats ? "—" : String(followStats?.following ?? 0),
+    },
+    {
+      label: "Followers",
+      value: statsLoading && !followStats ? "—" : String(followStats?.followers ?? 0),
+    },
   ];
 
   return (

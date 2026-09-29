@@ -3,10 +3,11 @@
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { EmptyState } from "@/components/empty-state";
+import { FollowButton } from "@/components/follow-button";
 import { HangTicketCard } from "@/components/hang-ticket-card";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
-import { useProfileByUsername, useTickets } from "@/lib/hooks";
+import { useFollowStats, useProfileByUsername, useTickets } from "@/lib/hooks";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { profileHandle, profileInitials, profileTitle, publicAvatarUrl } from "@/lib/profile";
 
@@ -20,6 +21,9 @@ export function PublicProfileView() {
   const { data: tickets, isLoading: ticketsLoading } = useTickets(
     profile?.id,
     Boolean(profile?.id)
+  );
+  const { data: followStats, isLoading: statsLoading } = useFollowStats(
+    profile?.id ?? null
   );
 
   if (!configured) {
@@ -90,6 +94,7 @@ export function PublicProfileView() {
             <h2 className="truncate text-xl leading-none tracking-tight">{title}</h2>
             <p className="mt-1 truncate text-sm text-muted-foreground">{handle}</p>
           </div>
+          <FollowButton profileId={profile.id} size="default" />
         </section>
 
         <dl className="grid grid-cols-3 divide-x divide-border rounded-2xl border border-border bg-card">
@@ -105,13 +110,17 @@ export function PublicProfileView() {
             <dt className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               Following
             </dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums">0</dd>
+            <dd className="mt-1 text-lg font-semibold tabular-nums">
+              {statsLoading && !followStats ? "—" : String(followStats?.following ?? 0)}
+            </dd>
           </div>
           <div className="px-2 py-3 text-center">
             <dt className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               Followers
             </dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums">0</dd>
+            <dd className="mt-1 text-lg font-semibold tabular-nums">
+              {statsLoading && !followStats ? "—" : String(followStats?.followers ?? 0)}
+            </dd>
           </div>
         </dl>
 

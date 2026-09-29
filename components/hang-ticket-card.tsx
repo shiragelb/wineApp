@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
+import { FollowButton } from "@/components/follow-button";
 import { profileInitials } from "@/lib/profile";
 import { profilePath, winePath, type HangTicketView } from "@/lib/tickets";
 
@@ -41,7 +42,7 @@ export function HangTicketCard({
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_8px_24px_-18px_rgba(70,24,16,0.45)]">
-      <div className="flex items-center gap-2.5 px-4 py-3">
+      <div className="flex items-center gap-2 px-4 py-3">
         {profileHref ? (
           <Link
             href={profileHref}
@@ -74,7 +75,7 @@ export function HangTicketCard({
             <span className="relative flex size-8 shrink-0 overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary">
               <span className="flex size-full items-center justify-center">{initials}</span>
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{ticket.displayName}</p>
               <p className="truncate text-xs text-muted-foreground">
                 {ticket.handle ?? ticket.region}
@@ -83,6 +84,7 @@ export function HangTicketCard({
             </div>
           </>
         )}
+        <FollowButton profileId={ticket.userId} />
       </div>
 
       <div

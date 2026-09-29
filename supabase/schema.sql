@@ -166,3 +166,7 @@ create policy "follows_delete_own"
   on public.follows for delete
   to authenticated
   using (auth.uid() = follower_id);
+
+-- Personalized feed ranking lives in the app (lib/feed-rank.ts):
+-- 55% followed authors, 30% taste overlap from bottles rated 4–5,
+-- 15% recency decay. No RPC or embeddings are required for this slice.

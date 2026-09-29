@@ -14,29 +14,47 @@ import {
   type HangTicketView,
   type TicketRow,
 } from "@/lib/tickets";
+import {
+  buildTasteProfile,
+  DISCOVERY_POOL,
+  emptyTasteProfile,
+  mergeTickets,
+  rankDiscoveryFeed,
+} from "@/lib/feed-rank";
+import { fetchFollowStats, fetchFollowingIds } from "@/lib/follows";
 
 function isMissingDisplayName(message: string) {
   return message.includes("display_name") || message.includes("schema cache");
 }
 
-export async function fetchTickets(filter?: {
+type TicketFilter = {
   userId?: string;
+  userIds?: string[];
   wineId?: string;
-}): Promise<HangTicketView[]> {
+  limit?: number;
+};
+
+export async function fetchTickets(filter?: TicketFilter): Promise<HangTicketView[]> {
+  if (filter?.userIds && filter.userIds.length === 0) {
+    return [];
+  }
+
   const supabase = createClient();
-  let query = supabase
-    .from("hang_tickets")
-    .select(hangTicketSelect)
-    .order("created_at", { ascending: false });
 
-  if (filter?.userId) {
-    query = query.eq("user_id", filter.userId);
-  }
-  if (filter?.wineId) {
-    query = query.eq("wine_id", filter.wineId);
+  function buildQuery(select: typeof hangTicketSelect | typeof hangTicketSelectFallback) {
+    let query = supabase
+      .from("hang_tickets")
+      .select(select)
+      .order("created_at", { ascending: false });
+
+    if (filter?.userId) query = query.eq("user_id", filter.userId);
+    if (filter?.userIds?.length) query = query.in("user_id", filter.userIds);
+    if (filter?.wineId) query = query.eq("wine_id", filter.wineId);
+    if (filter?.limit) query = query.limit(filter.limit);
+    return query;
   }
 
-  const first = await query;
+  const first = await buildQuery(hangTicketSelect);
   if (!first.error) {
     return ((first.data ?? []) as unknown as TicketRow[]).map(mapTicketRow);
   }
@@ -45,19 +63,7 @@ export async function fetchTickets(filter?: {
     throw new Error(first.error.message);
   }
 
-  let fallbackQuery = supabase
-    .from("hang_tickets")
-    .select(hangTicketSelectFallback)
-    .order("created_at", { ascending: false });
-
-  if (filter?.userId) {
-    fallbackQuery = fallbackQuery.eq("user_id", filter.userId);
-  }
-  if (filter?.wineId) {
-    fallbackQuery = fallbackQuery.eq("wine_id", filter.wineId);
-  }
-
-  const fallback = await fallbackQuery;
+  const fallback = await buildQuery(hangTicketSelectFallback);
   if (fallback.error) throw new Error(fallback.error.message);
   return ((fallback.data ?? []) as unknown as TicketRow[]).map(mapTicketRow);
 }
@@ -85,6 +91,11 @@ export function revalidateTickets(userId?: string) {
   }
   void globalMutate(
     (key) => Array.isArray(key) && key[0] === "wine-tickets",
+    undefined,
+    { revalidate: true }
+  );
+  void globalMutate(
+    (key) => Array.isArray(key) && key[0] === "discovery-feed",
     undefined,
     { revalidate: true }
   );
@@ -261,4 +272,58 @@ export function revalidateProfile(userId: string) {
   );
   void globalMutate(CACHE_KEYS.tickets);
   void globalMutate(CACHE_KEYS.myTickets(userId));
+}
+
+export function useFollowingIds(userId: string | null) {
+  return useSWR(
+    userId ? CACHE_KEYS.following(userId) : null,
+    () => fetchFollowingIds(userId as string),
+    { keepPreviousData: true }
+  );
+}
+
+export function useFollowStats(userId: string | null) {
+  return useSWR(
+    userId ? CACHE_KEYS.followStats(userId) : null,
+    () => fetchFollowStats(userId as string),
+    { keepPreviousData: true }
+  );
+}
+
+export async function fetchDiscoveryFeed(viewerId: string | null) {
+  const recent = await fetchTickets({ limit: DISCOVERY_POOL });
+  if (!viewerId) {
+    return rankDiscoveryFeed({
+      tickets: recent,
+      followedIds: [],
+      taste: emptyTasteProfile(),
+      viewerId: null,
+    });
+  }
+
+  const followedIds = await fetchFollowingIds(viewerId);
+  const [tasteSource, friendTickets] = await Promise.all([
+    fetchTickets({ userId: viewerId }),
+    fetchTickets({ userIds: followedIds, limit: DISCOVERY_POOL }),
+  ]);
+
+  return rankDiscoveryFeed({
+    tickets: mergeTickets(friendTickets, recent),
+    followedIds,
+    taste: buildTasteProfile(tasteSource),
+    viewerId,
+  });
+}
+
+export function useDiscoveryFeed() {
+  const { data: viewerId, isLoading: sessionLoading } = useSessionUserId();
+  const sessionReady = !sessionLoading || viewerId !== undefined;
+
+  return useSWR(
+    isSupabaseConfigured() && sessionReady
+      ? CACHE_KEYS.discovery(viewerId ?? null)
+      : null,
+    () => fetchDiscoveryFeed(viewerId ?? null),
+    { keepPreviousData: true }
+  );
 }
