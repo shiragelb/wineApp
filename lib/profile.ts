@@ -18,9 +18,7 @@ export function profileTitle(profile: Pick<ProfileRow, "username" | "display_nam
 
 export function profileHandle(profile: Pick<ProfileRow, "username" | "display_name">) {
   const nickname = profile.display_name?.trim();
-  if (nickname || !isGeneratedUsername(profile.username)) {
-    return `@${profile.username}`;
-  }
+  if (nickname) return `@${profile.username}`;
   return null;
 }
 

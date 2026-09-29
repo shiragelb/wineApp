@@ -52,12 +52,20 @@ export async function fetchTickets(userId?: string): Promise<HangTicketView[]> {
   return ((fallback.data ?? []) as unknown as TicketRow[]).map(mapTicketRow);
 }
 
-export function useTickets(userId?: string) {
-  const key = userId ? CACHE_KEYS.myTickets(userId) : CACHE_KEYS.tickets;
+export function useTickets(userId?: string, enabled = true) {
+  const key = !enabled
+    ? null
+    : userId
+      ? CACHE_KEYS.myTickets(userId)
+      : CACHE_KEYS.tickets;
 
-  return useSWR(isSupabaseConfigured() ? key : null, () => fetchTickets(userId), {
-    keepPreviousData: true,
-  });
+  return useSWR(
+    isSupabaseConfigured() && key ? key : null,
+    () => fetchTickets(userId),
+    {
+      keepPreviousData: true,
+    }
+  );
 }
 
 export function revalidateTickets(userId?: string) {

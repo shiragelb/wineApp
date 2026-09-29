@@ -18,8 +18,11 @@ import { cn } from "@/lib/utils";
 export function ProfileView() {
   const configured = isSupabaseConfigured();
   const { data: userId, isLoading: sessionLoading } = useSessionUserId();
-  const { data: profile } = useProfile(userId ?? null);
-  const { data: tickets, isLoading: ticketsLoading } = useTickets(userId ?? undefined);
+  const { data: profile, isLoading: profileLoading } = useProfile(userId ?? null);
+  const { data: tickets, isLoading: ticketsLoading } = useTickets(
+    userId ?? undefined,
+    Boolean(userId)
+  );
   const [editing, setEditing] = useState(false);
 
   if (!configured) {
@@ -110,7 +113,9 @@ export function ProfileView() {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-xl leading-none tracking-tight">{title}</h2>
+            <h2 className="truncate text-xl leading-none tracking-tight">
+              {profile ? title : profileLoading ? "Loading…" : title}
+            </h2>
             <p className="mt-1 truncate text-sm text-muted-foreground">
               {handle ?? "Add a nickname so friends recognize you"}
             </p>
@@ -121,6 +126,7 @@ export function ProfileView() {
           type="button"
           variant="outline"
           className="h-11 w-full"
+          disabled={profileLoading && !profile}
           onClick={() => setEditing(true)}
         >
           Edit profile
