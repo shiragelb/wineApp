@@ -6,6 +6,8 @@ import {
 
 export type HangTicketView = {
   id: string;
+  userId?: string;
+  wineId?: string;
   username: string;
   displayName: string;
   handle: string | null;
@@ -34,6 +36,8 @@ function asOne<T>(value: T | T[] | null | undefined): T | null {
 
 export type TicketRow = {
   id: string;
+  user_id: string;
+  wine_id: string;
   image_url: string;
   rating: number;
   review_text: string | null;
@@ -42,8 +46,8 @@ export type TicketRow = {
     | Pick<ProfileRow, "username" | "display_name" | "avatar_url">[]
     | null;
   canonical_wines:
-    | { name: string; winery: string; region: string | null }
-    | { name: string; winery: string; region: string | null }[]
+    | { id?: string; name: string; winery: string; region: string | null }
+    | { id?: string; name: string; winery: string; region: string | null }[]
     | null;
 };
 
@@ -57,6 +61,8 @@ export function mapTicketRow(row: TicketRow): HangTicketView {
 
   return {
     id: row.id,
+    userId: row.user_id,
+    wineId: wine?.id ?? row.wine_id,
     username: safeProfile.username,
     displayName: profileTitle(safeProfile),
     handle: profileHandle(safeProfile),
@@ -72,26 +78,41 @@ export function mapTicketRow(row: TicketRow): HangTicketView {
 
 export const hangTicketSelect = `
   id,
+  user_id,
+  wine_id,
   image_url,
   rating,
   review_text,
   profiles ( username, display_name, avatar_url ),
-  canonical_wines ( name, winery, region )
+  canonical_wines ( id, name, winery, region )
 ` as const;
 
 export const hangTicketSelectFallback = `
   id,
+  user_id,
+  wine_id,
   image_url,
   rating,
   review_text,
   profiles ( username, avatar_url ),
-  canonical_wines ( name, winery, region )
+  canonical_wines ( id, name, winery, region )
 ` as const;
 
 export const CACHE_KEYS = {
   tickets: "hang-tickets",
   session: "auth-session",
   profile: (userId: string) => ["profile", userId] as const,
+  profileByUsername: (username: string) => ["profile-username", username] as const,
   myTickets: (userId: string) => ["hang-tickets", userId] as const,
+  wine: (wineId: string) => ["wine", wineId] as const,
+  wineTickets: (wineId: string) => ["wine-tickets", wineId] as const,
   wines: (query: string) => ["wines", query] as const,
 };
+
+export function profilePath(username: string) {
+  return `/u/${encodeURIComponent(username)}`;
+}
+
+export function winePath(wineId: string) {
+  return `/wine/${encodeURIComponent(wineId)}`;
+}

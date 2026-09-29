@@ -18,15 +18,21 @@ function isMissingDisplayName(message: string) {
   return message.includes("display_name") || message.includes("schema cache");
 }
 
-export async function fetchTickets(userId?: string): Promise<HangTicketView[]> {
+export async function fetchTickets(filter?: {
+  userId?: string;
+  wineId?: string;
+}): Promise<HangTicketView[]> {
   const supabase = createClient();
   let query = supabase
     .from("hang_tickets")
     .select(hangTicketSelect)
     .order("created_at", { ascending: false });
 
-  if (userId) {
-    query = query.eq("user_id", userId);
+  if (filter?.userId) {
+    query = query.eq("user_id", filter.userId);
+  }
+  if (filter?.wineId) {
+    query = query.eq("wine_id", filter.wineId);
   }
 
   const first = await query;
@@ -43,8 +49,11 @@ export async function fetchTickets(userId?: string): Promise<HangTicketView[]> {
     .select(hangTicketSelectFallback)
     .order("created_at", { ascending: false });
 
-  if (userId) {
-    fallbackQuery = fallbackQuery.eq("user_id", userId);
+  if (filter?.userId) {
+    fallbackQuery = fallbackQuery.eq("user_id", filter.userId);
+  }
+  if (filter?.wineId) {
+    fallbackQuery = fallbackQuery.eq("wine_id", filter.wineId);
   }
 
   const fallback = await fallbackQuery;
@@ -61,7 +70,7 @@ export function useTickets(userId?: string, enabled = true) {
 
   return useSWR(
     isSupabaseConfigured() && key ? key : null,
-    () => fetchTickets(userId),
+    () => fetchTickets(userId ? { userId } : undefined),
     {
       keepPreviousData: true,
     }
@@ -73,6 +82,11 @@ export function revalidateTickets(userId?: string) {
   if (userId) {
     void globalMutate(CACHE_KEYS.myTickets(userId));
   }
+  void globalMutate(
+    (key) => Array.isArray(key) && key[0] === "wine-tickets",
+    undefined,
+    { revalidate: true }
+  );
 }
 
 export async function fetchSessionUserId() {
@@ -87,12 +101,15 @@ export function useSessionUserId() {
   });
 }
 
-export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+async function selectProfile(
+  column: "id" | "username",
+  value: string
+): Promise<ProfileRow | null> {
   const supabase = createClient();
   const full = await supabase
     .from("profiles")
     .select("id, username, display_name, avatar_url")
-    .eq("id", userId)
+    .eq(column, value)
     .maybeSingle();
 
   if (!full.error) {
@@ -101,7 +118,7 @@ export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
     if (row.display_name?.trim()) return row;
     const { data: auth } = await supabase.auth.getUser();
     const metaName =
-      auth.user?.id === userId
+      auth.user && auth.user.id === row.id
         ? (auth.user.user_metadata?.display_name as string | undefined)?.trim()
         : undefined;
     return metaName ? { ...row, display_name: metaName } : row;
@@ -114,14 +131,14 @@ export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   const fallback = await supabase
     .from("profiles")
     .select("id, username, avatar_url")
-    .eq("id", userId)
+    .eq(column, value)
     .maybeSingle();
 
   if (fallback.error) throw new Error(fallback.error.message);
   if (!fallback.data) return null;
   const { data: auth } = await supabase.auth.getUser();
   const metaName =
-    auth.user?.id === userId
+    auth.user && auth.user.id === fallback.data.id
       ? (auth.user.user_metadata?.display_name as string | undefined)?.trim()
       : undefined;
   return {
@@ -130,10 +147,54 @@ export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   };
 }
 
+export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+  return selectProfile("id", userId);
+}
+
 export function useProfile(userId: string | null) {
   return useSWR(
     userId ? CACHE_KEYS.profile(userId) : null,
     () => fetchProfile(userId as string),
+    { keepPreviousData: true }
+  );
+}
+
+export async function fetchProfileByUsername(username: string): Promise<ProfileRow | null> {
+  return selectProfile("username", username);
+}
+
+export function useProfileByUsername(username: string | null) {
+  return useSWR(
+    username ? CACHE_KEYS.profileByUsername(username) : null,
+    () => fetchProfileByUsername(username as string),
+    { keepPreviousData: true }
+  );
+}
+
+export async function fetchWine(wineId: string): Promise<CanonicalWine | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("canonical_wines")
+    .select("id, name, winery, region, grapes")
+    .eq("id", wineId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export function useWine(wineId: string | null) {
+  return useSWR(
+    wineId ? CACHE_KEYS.wine(wineId) : null,
+    () => fetchWine(wineId as string),
+    { keepPreviousData: true }
+  );
+}
+
+export function useWineTickets(wineId: string | null) {
+  return useSWR(
+    wineId ? CACHE_KEYS.wineTickets(wineId) : null,
+    () => fetchTickets({ wineId: wineId as string }),
     { keepPreviousData: true }
   );
 }
@@ -187,6 +248,11 @@ export function revalidateWines() {
 
 export function revalidateProfile(userId: string) {
   void globalMutate(CACHE_KEYS.profile(userId));
+  void globalMutate(
+    (key) => Array.isArray(key) && key[0] === "profile-username",
+    undefined,
+    { revalidate: true }
+  );
   void globalMutate(CACHE_KEYS.tickets);
   void globalMutate(CACHE_KEYS.myTickets(userId));
 }

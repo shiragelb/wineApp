@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Star } from "lucide-react";
 import { profileInitials } from "@/lib/profile";
-import type { HangTicketView } from "@/lib/tickets";
+import { profilePath, winePath, type HangTicketView } from "@/lib/tickets";
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -34,30 +35,54 @@ export function HangTicketCard({
     username: ticket.username,
     display_name: ticket.displayName === `@${ticket.username}` ? null : ticket.displayName,
   });
+  const canOpenProfile = Boolean(ticket.username && ticket.username !== "guest");
+  const profileHref = canOpenProfile ? profilePath(ticket.username) : null;
+  const wineHref = ticket.wineId ? winePath(ticket.wineId) : null;
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_8px_24px_-18px_rgba(70,24,16,0.45)]">
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <span className="relative flex size-8 shrink-0 overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary">
-          {ticket.avatarUrl ? (
-            <Image
-              src={ticket.avatarUrl}
-              alt=""
-              width={32}
-              height={32}
-              className="size-full object-cover"
-            />
-          ) : (
-            <span className="flex size-full items-center justify-center">{initials}</span>
-          )}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{ticket.displayName}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {ticket.handle ?? ticket.region}
-            {ticket.handle && ticket.region ? ` · ${ticket.region}` : ""}
-          </p>
-        </div>
+        {profileHref ? (
+          <Link
+            href={profileHref}
+            prefetch={true}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg -mx-1 px-1 py-0.5 hover:bg-muted/70"
+          >
+            <span className="relative flex size-8 shrink-0 overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              {ticket.avatarUrl ? (
+                <Image
+                  src={ticket.avatarUrl}
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="size-full object-cover"
+                />
+              ) : (
+                <span className="flex size-full items-center justify-center">{initials}</span>
+              )}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{ticket.displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {ticket.handle ?? ticket.region}
+                {ticket.handle && ticket.region ? ` · ${ticket.region}` : ""}
+              </p>
+            </div>
+          </Link>
+        ) : (
+          <>
+            <span className="relative flex size-8 shrink-0 overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              <span className="flex size-full items-center justify-center">{initials}</span>
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{ticket.displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {ticket.handle ?? ticket.region}
+                {ticket.handle && ticket.region ? ` · ${ticket.region}` : ""}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       <div
@@ -79,8 +104,19 @@ export function HangTicketCard({
           />
         ) : null}
         <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-4 pt-16 pb-4 text-white">
-          <p className="font-heading text-2xl leading-tight">{ticket.wine}</p>
-          <p className="mt-0.5 text-sm text-white/85">{ticket.winery}</p>
+          {wineHref ? (
+            <Link href={wineHref} prefetch={true} className="block hover:opacity-90">
+              <p className="font-heading text-2xl leading-tight underline-offset-4 hover:underline">
+                {ticket.wine}
+              </p>
+              <p className="mt-0.5 text-sm text-white/85">{ticket.winery}</p>
+            </Link>
+          ) : (
+            <>
+              <p className="font-heading text-2xl leading-tight">{ticket.wine}</p>
+              <p className="mt-0.5 text-sm text-white/85">{ticket.winery}</p>
+            </>
+          )}
         </div>
       </div>
 

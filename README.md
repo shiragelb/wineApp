@@ -5,7 +5,7 @@ A social wine app with two layers:
 - **Hang Tickets** — an Instagram-style photo feed of bottles people actually opened
 - **Canonical cellar** — a shared database of wines (`canonical_wines`) that posts can attach to
 
-This slice adds faster tab switching, nicknames and avatars, and a searchable wine picker on upload.
+This slice adds faster tab switching, nicknames, searchable wine upload, public cellars, and wine search.
 
 ## Run locally
 
@@ -48,10 +48,12 @@ Then add `https://wine-app-eta.vercel.app` in Vercel → Settings → Domains, a
 
 | Tab     | Path       | Status                                              |
 | ------- | ---------- | --------------------------------------------------- |
-| Feed    | `/`        | Cached `hang_tickets` feed, nicknames + avatars     |
-| Upload  | `/upload`  | Photo + searchable wine + rating + note             |
-| Profile | `/profile` | Edit nickname, username, and avatar                 |
-| Sign in | `/login`   | Email / password, with create-account               |
+| Feed    | `/`              | Cached hang tickets + wine search              |
+| Upload  | `/upload`        | Photo + searchable wine + rating + note        |
+| Profile | `/profile`       | Your cellar, edit nickname and avatar          |
+| User    | `/u/[username]`  | Public cellar of bottles they hung             |
+| Wine    | `/wine/[id]`     | Hang tickets for one canonical wine            |
+| Sign in | `/login`         | Email / password, with create-account          |
 
 Feed and Profile keep SWR cache in the shell, so switching tabs does not wait on a fresh database round-trip.
 

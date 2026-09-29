@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/empty-state";
 import { HangTicketCard } from "@/components/hang-ticket-card";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
+import { WineExploreSearch } from "@/components/wine-explore-search";
 import { mockTickets } from "@/lib/mock-tickets";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { useTickets } from "@/lib/hooks";
@@ -28,7 +29,9 @@ export function FeedView() {
         eyebrow="Hang Tickets"
         title="Tonight’s pours"
         description="A casual feed of bottles friends actually opened — photos first, cellar notes second."
-      />
+      >
+        <WineExploreSearch />
+      </PageHeader>
       {!configured ? <SetupNeeded /> : null}
       <div className="space-y-4 px-4 py-4">
         {configured && error ? (
