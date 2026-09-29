@@ -4,6 +4,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { ProfileRow } from "@/lib/profile";
+import { resolvedDisplayName } from "@/lib/profile";
 import {
   CACHE_KEYS,
   mapTicketRow,
@@ -115,7 +116,8 @@ async function selectProfile(
   if (!full.error) {
     const row = full.data;
     if (!row) return null;
-    if (row.display_name?.trim()) return row;
+    const nickname = resolvedDisplayName(row);
+    if (nickname) return { ...row, display_name: nickname };
     const { data: auth } = await supabase.auth.getUser();
     const metaName =
       auth.user && auth.user.id === row.id
@@ -136,6 +138,10 @@ async function selectProfile(
 
   if (fallback.error) throw new Error(fallback.error.message);
   if (!fallback.data) return null;
+  const nickname = resolvedDisplayName({
+    display_name: null,
+    avatar_url: fallback.data.avatar_url,
+  });
   const { data: auth } = await supabase.auth.getUser();
   const metaName =
     auth.user && auth.user.id === fallback.data.id
@@ -143,7 +149,7 @@ async function selectProfile(
       : undefined;
   return {
     ...fallback.data,
-    display_name: metaName || null,
+    display_name: nickname || metaName || null,
   };
 }
 

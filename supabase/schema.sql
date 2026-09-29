@@ -12,6 +12,7 @@ create table if not exists public.profiles (
   avatar_url text,
   created_at timestamptz not null default now(),
   constraint username_length check (char_length(username) between 2 and 32),
+  -- nickname (display_name) is not unique; username is.
   constraint display_name_length check (
     display_name is null or char_length(display_name) between 1 and 48
   )

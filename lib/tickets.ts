@@ -1,6 +1,7 @@
 import {
   profileHandle,
   profileTitle,
+  publicAvatarUrl,
   type ProfileRow,
 } from "@/lib/profile";
 
@@ -57,6 +58,7 @@ export function mapTicketRow(row: TicketRow): HangTicketView {
   const safeProfile = {
     username: profile?.username ?? "guest",
     display_name: profile?.display_name ?? null,
+    avatar_url: profile?.avatar_url ?? null,
   };
 
   return {
@@ -66,7 +68,7 @@ export function mapTicketRow(row: TicketRow): HangTicketView {
     username: safeProfile.username,
     displayName: profileTitle(safeProfile),
     handle: profileHandle(safeProfile),
-    avatarUrl: profile?.avatar_url ?? undefined,
+    avatarUrl: publicAvatarUrl(profile?.avatar_url),
     wine: wine?.name ?? "Unknown bottle",
     winery: wine?.winery ?? "Unknown winery",
     region: wine?.region ?? "",

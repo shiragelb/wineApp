@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
 import { useProfileByUsername, useTickets } from "@/lib/hooks";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { profileHandle, profileInitials, profileTitle } from "@/lib/profile";
+import { profileHandle, profileInitials, profileTitle, publicAvatarUrl } from "@/lib/profile";
 
 export function PublicProfileView() {
   const params = useParams<{ username: string }>();
@@ -59,6 +59,7 @@ export function PublicProfileView() {
   const title = profileTitle(profile);
   const handle = profileHandle(profile) ?? `@${profile.username}`;
   const initials = profileInitials(profile);
+  const photo = publicAvatarUrl(profile.avatar_url);
   const list = tickets ?? [];
 
   return (
@@ -72,9 +73,9 @@ export function PublicProfileView() {
       <div className="space-y-6 px-4 py-5">
         <section className="flex items-center gap-4">
           <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-primary text-lg font-semibold text-primary-foreground">
-            {profile.avatar_url ? (
+            {photo ? (
               <Image
-                src={profile.avatar_url}
+                src={photo}
                 alt=""
                 width={64}
                 height={64}

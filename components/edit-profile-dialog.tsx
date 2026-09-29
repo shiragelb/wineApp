@@ -17,11 +17,12 @@ import { createClient } from "@/lib/supabase/client";
 import { CACHE_KEYS } from "@/lib/tickets";
 import {
   USERNAME_PATTERN,
-  isGeneratedUsername,
+  embedNicknameInAvatarUrl,
   profileInitials,
-  slugFromDisplayName,
+  publicAvatarUrl,
   type ProfileRow,
 } from "@/lib/profile";
+
 const MAX_BYTES = 3 * 1024 * 1024;
 
 export function EditProfileDialog({
@@ -66,7 +67,7 @@ function EditProfileForm({
 
   const previewUrl = useMemo(() => {
     if (file) return URL.createObjectURL(file);
-    return profile?.avatar_url ?? null;
+    return publicAvatarUrl(profile?.avatar_url) ?? null;
   }, [file, profile?.avatar_url]);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ function EditProfileForm({
     setPending(true);
     try {
       const supabase = createClient();
-      let avatarUrl = profile?.avatar_url ?? null;
+      let avatarUrl = publicAvatarUrl(profile?.avatar_url) ?? null;
 
       if (file) {
         if (!file.type.startsWith("image/")) {
@@ -119,6 +120,18 @@ function EditProfileForm({
         avatarUrl = supabase.storage.from("hang_images").getPublicUrl(path).data.publicUrl;
       }
 
+      const { data: taken } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", nextUsername)
+        .neq("id", userId)
+        .maybeSingle();
+
+      if (taken) {
+        setError("That username is already taken. Nicknames can be shared; usernames cannot.");
+        return;
+      }
+
       await supabase.auth.updateUser({
         data: {
           display_name: nextDisplay || null,
@@ -126,62 +139,37 @@ function EditProfileForm({
         },
       });
 
-      const payload = {
-        username: nextUsername,
-        display_name: nextDisplay || null,
-        avatar_url: avatarUrl,
-      };
-
-      let { error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from("profiles")
-        .update(payload)
+        .update({
+          username: nextUsername,
+          display_name: nextDisplay || null,
+          avatar_url: avatarUrl,
+        })
         .eq("id", userId);
 
       if (updateError && updateError.message.includes("display_name")) {
-        const slug = slugFromDisplayName(nextDisplay);
-        const usernameToSave =
-          slug && isGeneratedUsername(nextUsername) ? slug : nextUsername;
-        const attempts = [usernameToSave];
-        if (slug && slug !== usernameToSave) attempts.unshift(slug);
+        const fallback = await supabase
+          .from("profiles")
+          .update({
+            username: nextUsername,
+            avatar_url: embedNicknameInAvatarUrl(avatarUrl, nextDisplay || null),
+          })
+          .eq("id", userId);
 
-        updateError = null;
-        for (const [index, handle] of attempts.entries()) {
-          const fallback = await supabase
-            .from("profiles")
-            .update({
-              username: handle,
-              avatar_url: avatarUrl,
-            })
-            .eq("id", userId);
-          if (!fallback.error) {
-            updateError = null;
-            break;
-          }
-          updateError = fallback.error;
-          const taken =
-            fallback.error.message.includes("duplicate") ||
-            fallback.error.code === "23505";
-          if (!taken) break;
-          if (index === attempts.length - 1 && slug) {
-            const retry = await supabase
-              .from("profiles")
-              .update({
-                username: `${slug.slice(0, 28)}${Math.floor(Math.random() * 90 + 10)}`,
-                avatar_url: avatarUrl,
-              })
-              .eq("id", userId);
-            updateError = retry.error;
-          }
+        if (fallback.error) {
+          setError(
+            fallback.error.message.includes("duplicate") || fallback.error.code === "23505"
+              ? "That username is already taken. Nicknames can be shared; usernames cannot."
+              : fallback.error.message
+          );
+          return;
         }
-      }
-
-      if (updateError) {
+      } else if (updateError) {
         setError(
           updateError.message.includes("duplicate") || updateError.code === "23505"
-            ? "That username is already taken."
-            : updateError.message.includes("display_name")
-              ? "Could not save nickname. Try a simpler username and save again."
-              : updateError.message
+            ? "That username is already taken. Nicknames can be shared; usernames cannot."
+            : updateError.message
         );
         return;
       }
@@ -190,6 +178,11 @@ function EditProfileForm({
         mutate(CACHE_KEYS.profile(userId)),
         mutate(CACHE_KEYS.tickets),
         mutate(CACHE_KEYS.myTickets(userId)),
+        mutate(
+          (key) => Array.isArray(key) && key[0] === "profile-username",
+          undefined,
+          { revalidate: true }
+        ),
       ]);
       onOpenChange(false);
     } catch (caught) {
@@ -209,7 +202,7 @@ function EditProfileForm({
       <DialogHeader>
         <DialogTitle>Edit profile</DialogTitle>
         <DialogDescription>
-          Set a nickname people will see on your hang tickets.
+          Nickname is what friends see. Username is your unique @handle.
         </DialogDescription>
       </DialogHeader>
 
@@ -247,16 +240,12 @@ function EditProfileForm({
           className="h-11 bg-card px-3"
           value={displayName}
           maxLength={48}
-          placeholder="Maya at the table"
-          onChange={(event) => {
-            const next = event.target.value;
-            setDisplayName(next);
-            if (isGeneratedUsername(username) || username === slugFromDisplayName(displayName)) {
-              const slug = slugFromDisplayName(next);
-              if (slug) setUsername(slug);
-            }
-          }}
+          placeholder="Shira"
+          onChange={(event) => setDisplayName(event.target.value)}
         />
+        <span className="block text-xs text-muted-foreground">
+          Shown on tickets. Two people can share the same nickname.
+        </span>
       </label>
 
       <label className="block space-y-2">
@@ -265,9 +254,12 @@ function EditProfileForm({
           className="h-11 bg-card px-3"
           value={username}
           maxLength={32}
-          placeholder="maya.pours"
+          placeholder="shira.pours"
           onChange={(event) => setUsername(event.target.value)}
         />
+        <span className="block text-xs text-muted-foreground">
+          Unique @handle. Nobody else can take this one.
+        </span>
       </label>
 
       {error ? (

@@ -12,7 +12,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useProfile, useSessionUserId, useTickets } from "@/lib/hooks";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { profileHandle, profileInitials, profileTitle } from "@/lib/profile";
+import { profileHandle, profileInitials, profileTitle, publicAvatarUrl } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 export function ProfileView() {
@@ -81,6 +81,7 @@ export function ProfileView() {
   const initials = profile
     ? profileInitials(profile)
     : "HT";
+  const photo = publicAvatarUrl(profile?.avatar_url);
   const list = tickets ?? [];
 
   const stats = [
@@ -99,9 +100,9 @@ export function ProfileView() {
       <div className="space-y-6 px-4 py-5">
         <section className="flex items-center gap-4">
           <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-primary text-lg font-semibold text-primary-foreground">
-            {profile?.avatar_url ? (
+            {photo ? (
               <Image
-                src={profile.avatar_url}
+                src={photo}
                 alt=""
                 width={64}
                 height={64}
@@ -117,7 +118,7 @@ export function ProfileView() {
               {profile ? title : profileLoading ? "Loading…" : title}
             </h2>
             <p className="mt-1 truncate text-sm text-muted-foreground">
-              {handle ?? "Add a nickname so friends recognize you"}
+              {handle ?? "@username"}
             </p>
           </div>
         </section>
