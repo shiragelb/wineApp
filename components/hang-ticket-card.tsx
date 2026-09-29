@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { FollowButton } from "@/components/follow-button";
+import { TicketOwnerMenu } from "@/components/ticket-owner-menu";
 import { profileInitials } from "@/lib/profile";
 import { profilePath, winePath, type HangTicketView } from "@/lib/tickets";
 
@@ -84,6 +85,7 @@ export function HangTicketCard({
             </div>
           </>
         )}
+        <TicketOwnerMenu ticket={ticket} />
         <FollowButton profileId={ticket.userId} />
       </div>
 
