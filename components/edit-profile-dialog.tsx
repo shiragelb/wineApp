@@ -15,9 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { CACHE_KEYS } from "@/lib/tickets";
-import { profileInitials, type ProfileRow } from "@/lib/profile";
-
-const USERNAME_PATTERN = /^[a-zA-Z0-9._]{2,32}$/;
+import {
+  USERNAME_PATTERN,
+  isGeneratedUsername,
+  profileInitials,
+  slugFromDisplayName,
+  type ProfileRow,
+} from "@/lib/profile";
 const MAX_BYTES = 3 * 1024 * 1024;
 
 export function EditProfileDialog({
@@ -115,6 +119,13 @@ function EditProfileForm({
         avatarUrl = supabase.storage.from("hang_images").getPublicUrl(path).data.publicUrl;
       }
 
+      await supabase.auth.updateUser({
+        data: {
+          display_name: nextDisplay || null,
+          username: nextUsername,
+        },
+      });
+
       const payload = {
         username: nextUsername,
         display_name: nextDisplay || null,
@@ -127,24 +138,40 @@ function EditProfileForm({
         .eq("id", userId);
 
       if (updateError && updateError.message.includes("display_name")) {
-        const fallback = await supabase
-          .from("profiles")
-          .update({
-            username: nextUsername,
-            avatar_url: avatarUrl,
-          })
-          .eq("id", userId);
-        updateError = fallback.error;
-        if (!updateError && nextDisplay) {
-          setError(
-            "Username saved. Run supabase/profiles-display-name.sql to enable nicknames, then try again."
-          );
-          await Promise.all([
-            mutate(CACHE_KEYS.profile(userId)),
-            mutate(CACHE_KEYS.tickets),
-            mutate(CACHE_KEYS.myTickets(userId)),
-          ]);
-          return;
+        const slug = slugFromDisplayName(nextDisplay);
+        const usernameToSave =
+          slug && isGeneratedUsername(nextUsername) ? slug : nextUsername;
+        const attempts = [usernameToSave];
+        if (slug && slug !== usernameToSave) attempts.unshift(slug);
+
+        updateError = null;
+        for (const [index, handle] of attempts.entries()) {
+          const fallback = await supabase
+            .from("profiles")
+            .update({
+              username: handle,
+              avatar_url: avatarUrl,
+            })
+            .eq("id", userId);
+          if (!fallback.error) {
+            updateError = null;
+            break;
+          }
+          updateError = fallback.error;
+          const taken =
+            fallback.error.message.includes("duplicate") ||
+            fallback.error.code === "23505";
+          if (!taken) break;
+          if (index === attempts.length - 1 && slug) {
+            const retry = await supabase
+              .from("profiles")
+              .update({
+                username: `${slug.slice(0, 28)}${Math.floor(Math.random() * 90 + 10)}`,
+                avatar_url: avatarUrl,
+              })
+              .eq("id", userId);
+            updateError = retry.error;
+          }
         }
       }
 
@@ -153,7 +180,7 @@ function EditProfileForm({
           updateError.message.includes("duplicate") || updateError.code === "23505"
             ? "That username is already taken."
             : updateError.message.includes("display_name")
-              ? "Run supabase/profiles-display-name.sql in the SQL Editor, then try again."
+              ? "Could not save nickname. Try a simpler username and save again."
               : updateError.message
         );
         return;
@@ -221,7 +248,14 @@ function EditProfileForm({
           value={displayName}
           maxLength={48}
           placeholder="Maya at the table"
-          onChange={(event) => setDisplayName(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setDisplayName(next);
+            if (isGeneratedUsername(username) || username === slugFromDisplayName(displayName)) {
+              const slug = slugFromDisplayName(next);
+              if (slug) setUsername(slug);
+            }
+          }}
         />
       </label>
 

@@ -95,7 +95,17 @@ export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
     .eq("id", userId)
     .maybeSingle();
 
-  if (!full.error) return full.data;
+  if (!full.error) {
+    const row = full.data;
+    if (!row) return null;
+    if (row.display_name?.trim()) return row;
+    const { data: auth } = await supabase.auth.getUser();
+    const metaName =
+      auth.user?.id === userId
+        ? (auth.user.user_metadata?.display_name as string | undefined)?.trim()
+        : undefined;
+    return metaName ? { ...row, display_name: metaName } : row;
+  }
 
   if (!isMissingDisplayName(full.error.message)) {
     throw new Error(full.error.message);
@@ -109,7 +119,15 @@ export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
 
   if (fallback.error) throw new Error(fallback.error.message);
   if (!fallback.data) return null;
-  return { ...fallback.data, display_name: null };
+  const { data: auth } = await supabase.auth.getUser();
+  const metaName =
+    auth.user?.id === userId
+      ? (auth.user.user_metadata?.display_name as string | undefined)?.trim()
+      : undefined;
+  return {
+    ...fallback.data,
+    display_name: metaName || null,
+  };
 }
 
 export function useProfile(userId: string | null) {
