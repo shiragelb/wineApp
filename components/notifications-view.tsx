@@ -54,9 +54,12 @@ export function NotificationsView() {
           title="Notifications"
           description="Sign in to see new followers and bottles friends hung."
         />
-        <div className="px-4 py-5">
+        <div className="space-y-2 px-4 py-5">
           <Link href="/login?next=/notifications" prefetch={true} className={cn(buttonVariants(), "h-11 w-full")}>
             Sign in
+          </Link>
+          <Link href="/signup?next=/notifications" prefetch={true} className={cn(buttonVariants({ variant: "outline" }), "h-11 w-full")}>
+            Create account
           </Link>
         </div>
       </>

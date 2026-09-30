@@ -22,6 +22,7 @@ Run these in the SQL Editor, in order:
 3. [`supabase/seed.sql`](supabase/seed.sql) — placeholder wines for search and color browse
 4. [`supabase/profiles-display-name.sql`](supabase/profiles-display-name.sql) — nicknames on existing projects (safe to re-run)
 5. [`supabase/social-extras.sql`](supabase/social-extras.sql) — optional: mute table, ticket price, wine color
+6. [`supabase/google-profiles.sql`](supabase/google-profiles.sql) — optional: copy Google name/photo into new profiles
 
 Color browse works without step 5 (color is inferred from the wine name and grapes). Mute works on this device without it; run the SQL so mutes sync across devices. Average price on a wine appears after tickets include an optional price.
 
@@ -39,6 +40,29 @@ The **Friends** tab (`/feed`) is the ranked photo feed: 55% people you follow, 3
 
 Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`) in Vercel.
 
+## Auth
+
+Sign in and sign up are separate pages (`/login`, `/signup`). Both include **Continue with Google** plus email and password.
+
+Google needs a Web OAuth client in Google Cloud, then those credentials in Supabase. The app cannot mint a Google client ID for you.
+
+1. In [Google Auth Platform → Clients](https://console.cloud.google.com/auth/clients), create an OAuth client of type **Web application**.
+2. Authorized JavaScript origins:
+   - `http://127.0.0.1:3847`
+   - `http://localhost:3847`
+   - `https://wine-app-eta.vercel.app`
+3. Authorized redirect URI (this is the **Supabase** callback, not the Next.js one):
+   - `https://bfjbwodesljejxvebhnz.supabase.co/auth/v1/callback`
+4. Copy the Client ID and Client Secret into **Supabase → Authentication → Providers → Google**. Enable the provider.
+5. In **Supabase → Authentication → URL Configuration**, set Site URL to the app origin you use most (`http://127.0.0.1:3847` locally, `https://wine-app-eta.vercel.app` in production) and add Redirect URLs:
+   - `http://127.0.0.1:3847/auth/callback`
+   - `http://localhost:3847/auth/callback`
+   - `https://wine-app-eta.vercel.app/auth/callback`
+
+Until step 4 is done, the Google buttons still appear and show a clear “provider is not enabled” message.
+
+6. Optional: run [`supabase/google-profiles.sql`](supabase/google-profiles.sql) so new Google users get their name and photo on first sign-in. The app also copies those after the OAuth callback.
+
 ## Routes
 
 | Tab / page | Path | What it is |
@@ -47,6 +71,8 @@ Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or `NEXT_PUB
 | Friends | `/feed` | Ranked hang-ticket feed |
 | Hang | `/upload` | Photo + wine + rating + optional price |
 | You | `/profile` | Your tickets; gear opens settings |
+| Sign in | `/login` | Google or email |
+| Sign up | `/signup` | Google or email + optional nickname |
 | Settings | `/settings` | Edit profile, notifications, mute, sign out |
 | People | `/people` | Search drinkers by username or nickname |
 | Notifications | `/notifications` | New followers and friends’ pours |

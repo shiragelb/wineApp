@@ -71,6 +71,13 @@ export function ProfileView() {
           >
             Sign in
           </Link>
+          <Link
+            href="/signup?next=/profile"
+            prefetch={true}
+            className={cn(buttonVariants({ variant: "outline" }), "h-11 w-full")}
+          >
+            Create account
+          </Link>
         </div>
       </>
     );

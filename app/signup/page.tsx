@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { LoginForm } from "@/components/login-form";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
+import { SignupForm } from "@/components/signup-form";
 import { oauthErrorMessage, safeNextPath } from "@/lib/auth-path";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
-  title: "Sign in",
+  title: "Create account",
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({
+export default async function SignupPage({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -31,8 +31,8 @@ export default async function LoginPage({
       <>
         <PageHeader
           eyebrow="Account"
-          title="Sign in"
-          description="Email, password, or Google against your Supabase project."
+          title="Create account"
+          description="Start a cellar with Google or email."
         />
         <SetupNeeded />
       </>
@@ -50,11 +50,11 @@ export default async function LoginPage({
     <>
       <PageHeader
         eyebrow="Account"
-        title="Sign in"
-        description="Use Google or the email you used when you created your cellar."
+        title="Create account"
+        description="Google is fastest. Email works if you would rather keep it separate."
       />
       <div className="px-4 py-5">
-        <LoginForm nextPath={nextPath} initialError={initialError} />
+        <SignupForm nextPath={nextPath} initialError={initialError} />
       </div>
     </>
   );

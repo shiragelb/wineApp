@@ -76,15 +76,29 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  nick text := left(nullif(trim(coalesce(
+    meta ->> 'display_name',
+    meta ->> 'full_name',
+    meta ->> 'name',
+    ''
+  )), ''), 48);
+  picture text := nullif(trim(coalesce(
+    meta ->> 'avatar_url',
+    meta ->> 'picture',
+    ''
+  )), '');
 begin
-  insert into public.profiles (id, username, display_name)
+  insert into public.profiles (id, username, display_name, avatar_url)
   values (
     new.id,
     coalesce(
-      nullif(new.raw_user_meta_data ->> 'username', ''),
+      nullif(meta ->> 'username', ''),
       'user_' || left(new.id::text, 8)
     ),
-    nullif(new.raw_user_meta_data ->> 'display_name', '')
+    nick,
+    picture
   );
   return new;
 end;
