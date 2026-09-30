@@ -53,28 +53,21 @@ function mapWineRow(row: Record<string, unknown>): CanonicalWine {
 
 const WINE_SELECT_RICH =
   "id, name, winery, region, grapes, color, wine_type, winery_id, wineries ( id, name, country, country_code, region )";
-const WINE_SELECT_MID = "id, name, winery, region, grapes, color, wine_type, winery_id";
-const WINE_SELECT_BASIC = "id, name, winery, region, grapes, color";
+const WINE_SELECT_MID =
+  "id, name, winery, region, grapes, color, wine_type, winery_id";
+const WINE_SELECT_TYPED = "id, name, winery, region, grapes, wine_type";
+const WINE_SELECT_COLOR = "id, name, winery, region, grapes, color";
 const WINE_SELECT_LEGACY = "id, name, winery, region, grapes";
 
-export async function searchWineries(query: string, limit = 8): Promise<WineryRow[]> {
-  const trimmed = sanitize(query);
-  if (!trimmed) return [];
-  const supabase = createClient();
-  const pattern = `%${trimmed}%`;
-  const { data, error } = await supabase
-    .from("wineries")
-    .select("id, name, country, country_code, region")
-    .or(`name.ilike.${pattern},region.ilike.${pattern},country.ilike.${pattern}`)
-    .order("name")
-    .limit(limit);
+const WINE_SELECT_CANDIDATES = [
+  WINE_SELECT_RICH,
+  WINE_SELECT_MID,
+  WINE_SELECT_TYPED,
+  WINE_SELECT_COLOR,
+  WINE_SELECT_LEGACY,
+];
 
-  if (error) {
-    if (isMissingRelation(error.message)) return [];
-    throw new Error(error.message);
-  }
-  return (data ?? []) as WineryRow[];
-}
+let cachedWineSelect: string | null = null;
 
 export async function searchWineCatalog(
   query: string,
@@ -94,9 +87,14 @@ export async function searchWineCatalog(
     return request;
   }
 
-  for (const select of [WINE_SELECT_RICH, WINE_SELECT_MID, WINE_SELECT_BASIC, WINE_SELECT_LEGACY]) {
+  const candidates = cachedWineSelect
+    ? [cachedWineSelect, ...WINE_SELECT_CANDIDATES.filter((item) => item !== cachedWineSelect)]
+    : WINE_SELECT_CANDIDATES;
+
+  for (const select of candidates) {
     const result = await run(select);
     if (!result.error) {
+      cachedWineSelect = select;
       return ((result.data ?? []) as unknown as Record<string, unknown>[]).map(mapWineRow);
     }
     if (!isMissingRelation(result.error.message) && !/column/i.test(result.error.message)) {
@@ -104,6 +102,25 @@ export async function searchWineCatalog(
     }
   }
   return [];
+}
+
+export async function searchWineries(query: string, limit = 8): Promise<WineryRow[]> {
+  const trimmed = sanitize(query);
+  if (!trimmed) return [];
+  const supabase = createClient();
+  const pattern = `%${trimmed}%`;
+  const { data, error } = await supabase
+    .from("wineries")
+    .select("id, name, country, country_code, region")
+    .or(`name.ilike.${pattern},region.ilike.${pattern},country.ilike.${pattern}`)
+    .order("name")
+    .limit(limit);
+
+  if (error) {
+    if (isMissingRelation(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as WineryRow[];
 }
 
 export async function searchWineAndWinery(query: string): Promise<WineSearchHit[]> {
@@ -242,16 +259,10 @@ export async function createCanonicalWine(input: {
     grapes: grapes.length ? grapes : null,
   };
 
-  let { data, error } = await supabase
-    .from("canonical_wines")
-    .insert(richPayload)
-    .select(WINE_SELECT_RICH)
-    .single();
-
-  if (error && isMissingRelation(error.message)) {
-    const mid = await supabase
-      .from("canonical_wines")
-      .insert({
+  const insertCandidates: Array<{ payload: Record<string, unknown>; select: string }> = [
+    { payload: richPayload, select: WINE_SELECT_RICH },
+    {
+      payload: {
         name: richPayload.name,
         winery: richPayload.winery,
         region: richPayload.region,
@@ -259,42 +270,59 @@ export async function createCanonicalWine(input: {
         color: richPayload.color,
         grapes: richPayload.grapes,
         winery_id: richPayload.winery_id || undefined,
-      })
-      .select(WINE_SELECT_MID)
-      .single();
-    data = mid.data as typeof data;
-    error = mid.error;
-  }
-
-  if (error && isMissingRelation(error.message)) {
-    const basic = await supabase
-      .from("canonical_wines")
-      .insert({
+      },
+      select: WINE_SELECT_MID,
+    },
+    {
+      payload: {
         name: richPayload.name,
         winery: richPayload.winery,
         region: richPayload.region,
-        grapes: grapesToLegacyText(grapes),
+        wine_type: richPayload.wine_type,
+        grapes: richPayload.grapes,
+      },
+      select: WINE_SELECT_TYPED,
+    },
+    {
+      payload: {
+        name: richPayload.name,
+        winery: richPayload.winery,
+        region: richPayload.region,
+        grapes: richPayload.grapes,
         color: richPayload.color,
-      })
-      .select(WINE_SELECT_BASIC)
-      .single();
-    data = basic.data as typeof data;
-    error = basic.error;
-  }
-
-  if (error && isMissingRelation(error.message)) {
-    const legacy = await supabase
-      .from("canonical_wines")
-      .insert({
+      },
+      select: WINE_SELECT_COLOR,
+    },
+    {
+      payload: {
         name: richPayload.name,
         winery: richPayload.winery,
         region: richPayload.region,
         grapes: grapesToLegacyText(grapes),
-      })
-      .select(WINE_SELECT_LEGACY)
+      },
+      select: WINE_SELECT_LEGACY,
+    },
+  ];
+
+  let data: unknown = null;
+  let error: { message: string } | null = null;
+
+  for (const candidate of insertCandidates) {
+    const result = await supabase
+      .from("canonical_wines")
+      .insert(candidate.payload)
+      .select(candidate.select)
       .single();
-    data = legacy.data as typeof data;
-    error = legacy.error;
+    if (!result.error) {
+      data = result.data;
+      error = null;
+      cachedWineSelect = candidate.select;
+      break;
+    }
+    error = result.error;
+    if (!isMissingRelation(result.error.message) && !/column/i.test(result.error.message)) {
+      break;
+    }
   }
 
   if (error || !data) {
