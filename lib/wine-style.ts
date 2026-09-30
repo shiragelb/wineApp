@@ -49,16 +49,26 @@ const WHITE_GRAPES =
 
 export function inferWineColor(input: {
   name?: string | null;
-  grapes?: string | null;
+  grapes?: string | { grape: string; percentage: number | null }[] | null;
   region?: string | null;
   color?: string | null;
+  wine_type?: string | null;
 }): WineColor {
+  const fromType = input.wine_type?.toLowerCase().trim();
+  if (fromType === "rosé" || fromType === "rose") return "rose";
+  if (fromType === "red" || fromType === "white" || fromType === "orange") return fromType;
+  if (fromType === "sparkling") return "white";
+  if (fromType === "fortified" || fromType === "dessert") return "red";
+
   const stored = input.color?.toLowerCase().trim();
   if (stored === "red" || stored === "white" || stored === "rose" || stored === "rosé" || stored === "orange") {
     return stored === "rosé" ? "rose" : stored;
   }
 
-  const blob = `${input.name ?? ""} ${input.grapes ?? ""} ${input.region ?? ""}`.toLowerCase();
+  const grapeText = Array.isArray(input.grapes)
+    ? input.grapes.map((share) => share.grape).join(" ")
+    : input.grapes ?? "";
+  const blob = `${input.name ?? ""} ${grapeText} ${input.region ?? ""}`.toLowerCase();
   if (/ros[eé]|rosato|blush/.test(blob)) return "rose";
   if (/orange|amber|skin.?contact|ramato/.test(blob)) return "orange";
   if (/blanc|white|chardonnay|riesling|sauvignon|grigio/.test(blob) || WHITE_GRAPES.test(blob)) {

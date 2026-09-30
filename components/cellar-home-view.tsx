@@ -6,6 +6,7 @@ import { Bell, Search, Star } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
+import { WineAttributeTags, WineOriginHeader } from "@/components/wine-tags";
 import { WineExploreSearch } from "@/components/wine-explore-search";
 import {
   unreadNotificationCount,
@@ -255,10 +256,17 @@ function WineCard({
       />
       <div className="space-y-1 px-3 py-3">
         <p className="line-clamp-2 text-sm font-semibold tracking-tight">{wine.name}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {wine.winery}
-          {wine.region ? ` · ${wineRegionGroup(wine.region)}` : ""}
-        </p>
+        <WineOriginHeader
+          country={wine.country}
+          countryCode={wine.country_code}
+          region={wine.winery_region || wine.region}
+          winery={wine.winery}
+        />
+        <WineAttributeTags
+          className="pt-1"
+          wineType={wine.wine_type ?? wine.color}
+          grapes={wine.grapes}
+        />
         <p className="flex items-center gap-1 pt-1 text-xs text-foreground/80">
           <Star className="size-3 fill-primary text-primary" aria-hidden />
           {verdict.tickets === 0

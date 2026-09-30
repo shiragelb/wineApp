@@ -4,6 +4,11 @@ import {
   publicAvatarUrl,
   type ProfileRow,
 } from "@/lib/profile";
+import {
+  formatGrapeLabel,
+  parseGrapeShares,
+  type GrapeShare,
+} from "@/lib/wine-meta";
 
 export type HangTicketView = {
   id: string;
@@ -17,6 +22,10 @@ export type HangTicketView = {
   winery: string;
   region: string;
   grapes?: string;
+  grapeShares?: GrapeShare[];
+  wineType?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
   rating: number;
   review: string;
   imageUrl?: string;
@@ -30,8 +39,13 @@ export type CanonicalWine = {
   name: string;
   winery: string;
   region: string | null;
-  grapes?: string | null;
+  grapes?: string | GrapeShare[] | null;
   color?: string | null;
+  wine_type?: string | null;
+  winery_id?: string | null;
+  country?: string | null;
+  country_code?: string | null;
+  winery_region?: string | null;
 };
 
 function asOne<T>(value: T | T[] | null | undefined): T | null {
@@ -58,16 +72,52 @@ export type TicketRow = {
         name: string;
         winery: string;
         region: string | null;
-        grapes?: string | null;
+        grapes?: string | GrapeShare[] | null;
         color?: string | null;
+        wine_type?: string | null;
+        winery_id?: string | null;
+        wineries?:
+          | {
+              id?: string;
+              name?: string;
+              country?: string | null;
+              country_code?: string | null;
+              region?: string | null;
+            }
+          | {
+              id?: string;
+              name?: string;
+              country?: string | null;
+              country_code?: string | null;
+              region?: string | null;
+            }[]
+          | null;
       }
     | {
         id?: string;
         name: string;
         winery: string;
         region: string | null;
-        grapes?: string | null;
+        grapes?: string | GrapeShare[] | null;
         color?: string | null;
+        wine_type?: string | null;
+        winery_id?: string | null;
+        wineries?:
+          | {
+              id?: string;
+              name?: string;
+              country?: string | null;
+              country_code?: string | null;
+              region?: string | null;
+            }
+          | {
+              id?: string;
+              name?: string;
+              country?: string | null;
+              country_code?: string | null;
+              region?: string | null;
+            }[]
+          | null;
       }[]
     | null;
 };
@@ -75,11 +125,13 @@ export type TicketRow = {
 export function mapTicketRow(row: TicketRow): HangTicketView {
   const profile = asOne(row.profiles);
   const wine = asOne(row.canonical_wines);
+  const wineryMeta = asOne(wine?.wineries ?? null);
   const safeProfile = {
     username: profile?.username ?? "guest",
     display_name: profile?.display_name ?? null,
     avatar_url: profile?.avatar_url ?? null,
   };
+  const grapeShares = parseGrapeShares(wine?.grapes);
 
   return {
     id: row.id,
@@ -90,9 +142,13 @@ export function mapTicketRow(row: TicketRow): HangTicketView {
     handle: profileHandle(safeProfile),
     avatarUrl: publicAvatarUrl(profile?.avatar_url),
     wine: wine?.name ?? "Unknown bottle",
-    winery: wine?.winery ?? "Unknown winery",
-    region: wine?.region ?? "",
-    grapes: wine?.grapes ?? undefined,
+    winery: wine?.winery ?? wineryMeta?.name ?? "Unknown winery",
+    region: wine?.region ?? wineryMeta?.region ?? "",
+    grapes: formatGrapeLabel(grapeShares) ?? undefined,
+    grapeShares,
+    wineType: wine?.wine_type ?? wine?.color ?? null,
+    country: wineryMeta?.country ?? null,
+    countryCode: wineryMeta?.country_code ?? null,
     rating: row.rating,
     review: row.review_text ?? "",
     imageUrl: row.image_url,
@@ -111,7 +167,23 @@ export const hangTicketSelect = `
   created_at,
   price,
   profiles ( username, display_name, avatar_url ),
-  canonical_wines ( id, name, winery, region, grapes, color )
+  canonical_wines (
+    id, name, winery, region, grapes, color, wine_type, winery_id,
+    wineries ( id, name, country, country_code, region )
+  )
+` as const;
+
+export const hangTicketSelectMid = `
+  id,
+  user_id,
+  wine_id,
+  image_url,
+  rating,
+  review_text,
+  created_at,
+  price,
+  profiles ( username, display_name, avatar_url ),
+  canonical_wines ( id, name, winery, region, grapes, color, wine_type )
 ` as const;
 
 export const hangTicketSelectFallback = `

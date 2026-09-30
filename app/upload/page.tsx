@@ -17,7 +17,7 @@ export default async function UploadPage() {
         <PageHeader
           eyebrow="New ticket"
           title="Hang a bottle"
-          description="Photo, wine, rating, and a note."
+          description="Photo, smart wine search, rating, and a note."
         />
         <SetupNeeded />
       </>
@@ -36,7 +36,7 @@ export default async function UploadPage() {
       <PageHeader
         eyebrow="New ticket"
         title="Hang a bottle"
-        description="Search the cellar or add a wine, then hang the bottle."
+        description="Search wine or winery, set type and grapes, then hang the bottle."
       />
       <UploadForm />
     </>

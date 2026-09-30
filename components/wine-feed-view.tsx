@@ -3,12 +3,15 @@
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
+import { GrapeBlendBar } from "@/components/grape-blend-bar";
 import { HangTicketCard } from "@/components/hang-ticket-card";
 import { PageHeader } from "@/components/page-header";
 import { SetupNeeded } from "@/components/setup-needed";
+import { WineAttributeTags, WineOriginHeader } from "@/components/wine-tags";
 import { WineExploreSearch } from "@/components/wine-explore-search";
 import { useFollowingIds, useSessionUserId, useWine, useWineTickets } from "@/lib/hooks";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { parseGrapeShares } from "@/lib/wine-meta";
 import { formatPrice, formatScore, wineVerdict } from "@/lib/wine-verdict";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +67,8 @@ export function WineFeedView() {
     );
   }
 
-  const subtitle = [wine.winery, wine.region, wine.grapes].filter(Boolean).join(" · ");
+  const subtitle = [wine.winery, wine.region].filter(Boolean).join(" · ");
+  const grapeShares = parseGrapeShares(wine.grapes);
 
   return (
     <>
@@ -77,6 +81,21 @@ export function WineFeedView() {
         <WineExploreSearch />
       </PageHeader>
       <div className="space-y-4 px-4 py-4">
+        <div className="space-y-2">
+          <WineOriginHeader
+            country={wine.country}
+            countryCode={wine.country_code}
+            region={wine.winery_region || wine.region}
+            winery={wine.winery}
+          />
+          <WineAttributeTags
+            wineType={wine.wine_type ?? wine.color}
+            grapeShares={grapeShares}
+            showRegion
+          />
+          {grapeShares.length > 1 ? <GrapeBlendBar shares={grapeShares} /> : null}
+        </div>
+
         {verdict ? (
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <VerdictStat label="Avg score" value={formatScore(verdict.average)} />

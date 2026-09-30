@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { FollowButton } from "@/components/follow-button";
 import { TicketOwnerMenu } from "@/components/ticket-owner-menu";
+import { WineAttributeTags, WineOriginHeader } from "@/components/wine-tags";
 import { profileInitials } from "@/lib/profile";
 import { profilePath, winePath, type HangTicketView } from "@/lib/tickets";
 
@@ -126,6 +127,16 @@ export function HangTicketCard({
 
       <div className="space-y-2 px-4 py-3.5">
         <Stars rating={ticket.rating} />
+        <WineOriginHeader
+          country={ticket.country}
+          countryCode={ticket.countryCode}
+          region={ticket.region || null}
+          winery={ticket.winery}
+        />
+        <WineAttributeTags
+          wineType={ticket.wineType}
+          grapeShares={ticket.grapeShares}
+        />
         {ticket.review ? (
           <p className="text-sm leading-relaxed text-foreground/90">{ticket.review}</p>
         ) : null}

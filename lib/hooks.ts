@@ -9,11 +9,14 @@ import {
   CACHE_KEYS,
   mapTicketRow,
   hangTicketSelect,
+  hangTicketSelectMid,
   hangTicketSelectFallback,
   type CanonicalWine,
   type HangTicketView,
   type TicketRow,
 } from "@/lib/tickets";
+import { parseGrapeShares } from "@/lib/wine-meta";
+import { searchWineCatalog } from "@/lib/wineries";
 import {
   buildTasteProfile,
   DISCOVERY_POOL,
@@ -31,7 +34,11 @@ function isMissingColumn(message: string) {
     message.includes("schema cache") ||
     message.includes("does not exist") ||
     message.includes("price") ||
-    message.includes("color")
+    message.includes("color") ||
+    message.includes("wine_type") ||
+    message.includes("winery_id") ||
+    message.includes("wineries") ||
+    message.includes("grape_varietals")
   );
 }
 
@@ -49,7 +56,12 @@ export async function fetchTickets(filter?: TicketFilter): Promise<HangTicketVie
 
   const supabase = createClient();
 
-  function buildQuery(select: typeof hangTicketSelect | typeof hangTicketSelectFallback) {
+  function buildQuery(
+    select:
+      | typeof hangTicketSelect
+      | typeof hangTicketSelectMid
+      | typeof hangTicketSelectFallback
+  ) {
     let query = supabase
       .from("hang_tickets")
       .select(select)
@@ -69,6 +81,15 @@ export async function fetchTickets(filter?: TicketFilter): Promise<HangTicketVie
 
   if (!isMissingColumn(first.error.message)) {
     throw new Error(first.error.message);
+  }
+
+  const mid = await buildQuery(hangTicketSelectMid);
+  if (!mid.error) {
+    return ((mid.data ?? []) as unknown as TicketRow[]).map(mapTicketRow);
+  }
+
+  if (!isMissingColumn(mid.error.message)) {
+    throw new Error(mid.error.message);
   }
 
   const fallback = await buildQuery(hangTicketSelectFallback);
@@ -204,22 +225,42 @@ export function useProfileByUsername(username: string | null) {
 
 export async function fetchWine(wineId: string): Promise<CanonicalWine | null> {
   const supabase = createClient();
-  const full = await supabase
-    .from("canonical_wines")
-    .select("id, name, winery, region, grapes, color")
-    .eq("id", wineId)
-    .maybeSingle();
-
-  if (!full.error) return full.data;
-  if (!isMissingColumn(full.error.message)) throw new Error(full.error.message);
-
-  const fallback = await supabase
-    .from("canonical_wines")
-    .select("id, name, winery, region, grapes")
-    .eq("id", wineId)
-    .maybeSingle();
-  if (fallback.error) throw new Error(fallback.error.message);
-  return fallback.data;
+  for (const select of [
+    "id, name, winery, region, grapes, color, wine_type, winery_id, wineries ( id, name, country, country_code, region )",
+    "id, name, winery, region, grapes, color, wine_type, winery_id",
+    "id, name, winery, region, grapes, color",
+    "id, name, winery, region, grapes",
+  ]) {
+    const result = await supabase
+      .from("canonical_wines")
+      .select(select)
+      .eq("id", wineId)
+      .maybeSingle();
+    if (!result.error) {
+      if (!result.data) return null;
+      const row = result.data as unknown as Record<string, unknown>;
+      const nested = row.wineries;
+      const wineryRow = Array.isArray(nested)
+        ? (nested[0] as Record<string, unknown> | undefined)
+        : (nested as Record<string, unknown> | null | undefined);
+      const shares = parseGrapeShares(row.grapes);
+      return {
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        winery: String(row.winery ?? wineryRow?.name ?? ""),
+        region: (row.region as string | null) ?? (wineryRow?.region as string | null) ?? null,
+        grapes: shares.length ? shares : (row.grapes as CanonicalWine["grapes"]),
+        color: (row.color as string | null) ?? null,
+        wine_type: (row.wine_type as string | null) ?? null,
+        winery_id: (row.winery_id as string | null) ?? (wineryRow?.id as string | null) ?? null,
+        country: (wineryRow?.country as string | null) ?? null,
+        country_code: (wineryRow?.country_code as string | null) ?? null,
+        winery_region: (wineryRow?.region as string | null) ?? null,
+      };
+    }
+    if (!isMissingColumn(result.error.message)) throw new Error(result.error.message);
+  }
+  return null;
 }
 
 export function useWine(wineId: string | null) {
@@ -238,40 +279,8 @@ export function useWineTickets(wineId: string | null) {
   );
 }
 
-function sanitizeWineQuery(query: string) {
-  return query
-    .replace(/[^a-zA-Z0-9\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export async function searchWines(query: string, limit = 12): Promise<CanonicalWine[]> {
-  const supabase = createClient();
-  const trimmed = sanitizeWineQuery(query);
-
-  async function run(select: string) {
-    let request = supabase
-      .from("canonical_wines")
-      .select(select)
-      .order("name")
-      .limit(limit);
-
-    if (trimmed) {
-      const pattern = `%${trimmed}%`;
-      request = request.or(
-        `name.ilike.${pattern},winery.ilike.${pattern},region.ilike.${pattern}`
-      );
-    }
-    return request;
-  }
-
-  const first = await run("id, name, winery, region, grapes, color");
-  if (!first.error) return (first.data ?? []) as unknown as CanonicalWine[];
-  if (!isMissingColumn(first.error.message)) throw new Error(first.error.message);
-
-  const fallback = await run("id, name, winery, region, grapes");
-  if (fallback.error) throw new Error(fallback.error.message);
-  return (fallback.data ?? []) as unknown as CanonicalWine[];
+  return searchWineCatalog(query, limit);
 }
 
 export function useWineSearch(query: string) {
@@ -402,7 +411,7 @@ export type WineCatalog = {
 
 export async function fetchWineCatalog(): Promise<WineCatalog> {
   const [wines, tickets] = await Promise.all([
-    searchWines("", 80),
+    searchWines("", 200),
     fetchTickets({ limit: 120 }),
   ]);
   return { wines, tickets };

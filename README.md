@@ -23,8 +23,10 @@ Run these in the SQL Editor, in order:
 4. [`supabase/profiles-display-name.sql`](supabase/profiles-display-name.sql) — nicknames on existing projects (safe to re-run)
 5. [`supabase/social-extras.sql`](supabase/social-extras.sql) — optional: mute table, ticket price, wine color
 6. [`supabase/google-profiles.sql`](supabase/google-profiles.sql) — optional: copy Google name/photo into new profiles
+7. [`supabase/migrations/20260930093653_wine_metadata_wineries_grapes.sql`](supabase/migrations/20260930093653_wine_metadata_wineries_grapes.sql) — wineries, wine_type, grapes JSONB, trigram search
+8. [`supabase/seed_wineries_and_grapes.sql`](supabase/seed_wineries_and_grapes.sql) — renowned producers + common grape list
 
-Color browse works without step 5 (color is inferred from the wine name and grapes). Mute works on this device without it; run the SQL so mutes sync across devices. Average price on a wine appears after tickets include an optional price.
+Color browse works without step 5 (color is inferred from the wine name/grapes). Mute works on this device without it; run the SQL so mutes sync across devices. Average price on a wine appears after tickets include an optional price. Steps 7–8 unlock Vivino-style tags, winery autocomplete, and the grape blend bar on Hang.
 
 ## Cellar home
 
@@ -79,6 +81,7 @@ Until step 4 is done, the Google buttons still appear and show a clear “provid
 | User | `/u/[username]` | Public cellar |
 | Follow lists | `/u/[username]/followers` and `/following` | Clickable people, follow / mute |
 | Wine | `/wine/[id]` | Verdict (avg score, tickets, friends, avg price) + Friends / Everyone |
+| Explore | `/explore` | Filter cellar by winery, region, grape, or wine type |
 
 ## Stack
 
