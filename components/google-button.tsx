@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { oauthCallbackUrl } from "@/lib/auth-path";
-import { createClient } from "@/lib/supabase/client";
+import { googleStartUrl } from "@/lib/auth-path";
 
 function GoogleMark() {
   return (
@@ -31,7 +30,6 @@ function GoogleMark() {
 export function GoogleButton({
   nextPath = "/",
   label = "Continue with Google",
-  onError,
 }: {
   nextPath?: string;
   label?: string;
@@ -39,38 +37,9 @@ export function GoogleButton({
 }) {
   const [pending, setPending] = useState(false);
 
-  async function signInWithGoogle() {
-    onError?.("");
+  function signInWithGoogle() {
     setPending(true);
-
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: oauthCallbackUrl(nextPath),
-          queryParams: {
-            access_type: "offline",
-            prompt: "select_account",
-          },
-        },
-      });
-
-      if (error) {
-        onError?.(
-          error.message.includes("provider is not enabled") ||
-            error.message.toLowerCase().includes("unsupported provider")
-            ? "Google sign-in is not enabled on this project yet. Add a Google client ID in Supabase Auth."
-            : error.message
-        );
-        setPending(false);
-      }
-    } catch (caught) {
-      onError?.(
-        caught instanceof Error ? caught.message : "Could not start Google sign-in."
-      );
-      setPending(false);
-    }
+    window.location.assign(googleStartUrl(nextPath));
   }
 
   return (
@@ -79,7 +48,7 @@ export function GoogleButton({
       variant="outline"
       className="h-11 w-full gap-2 bg-card"
       disabled={pending}
-      onClick={() => void signInWithGoogle()}
+      onClick={signInWithGoogle}
     >
       <GoogleMark />
       {pending ? "Opening Google…" : label}

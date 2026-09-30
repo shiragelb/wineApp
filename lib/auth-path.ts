@@ -11,11 +11,18 @@ export function withNextPath(href: string, nextPath?: string | null) {
   return `${href}?next=${encodeURIComponent(next)}`;
 }
 
-export function oauthCallbackUrl(nextPath?: string | null) {
-  const origin = window.location.origin;
+export function oauthCallbackUrlFromOrigin(origin: string, nextPath?: string | null) {
   const url = new URL("/auth/callback", origin);
   url.searchParams.set("next", safeNextPath(nextPath));
   return url.toString();
+}
+
+export function oauthCallbackUrl(nextPath?: string | null) {
+  return oauthCallbackUrlFromOrigin(window.location.origin, nextPath);
+}
+
+export function googleStartUrl(nextPath?: string | null) {
+  return withNextPath("/auth/google", nextPath);
 }
 
 export function oauthErrorMessage(error?: string | null, description?: string | null) {
